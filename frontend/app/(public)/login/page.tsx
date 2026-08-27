@@ -34,6 +34,28 @@ export default async function LoginPage({
         <LoginForm />
       </Suspense>
 
+      <details className="mb-6 border border-nhs-mid-grey p-4">
+        <summary className="cursor-pointer font-bold">
+          Demonstration accounts
+        </summary>
+        <p className="mt-3 mb-2">
+          This is a demo system with synthetic data. Sign in with any of these:
+        </p>
+        <ul className="mb-2 list-disc pl-6">
+          <li><code>patient@example.test</code> — patient portal</li>
+          <li><code>doctor@example.test</code> — clinical view</li>
+          <li><code>nurse@example.test</code> — clinical view</li>
+          <li><code>admin@example.test</code> — operations view</li>
+        </ul>
+        <p>
+          Password: <code>demo-hospital-2026</code>
+        </p>
+        <p className="mt-2 text-sm text-nhs-dark-grey">
+          These accounts describe no real person. Staff and admin views are still being
+          built and currently show the patient dashboard.
+        </p>
+      </details>
+
       <hr className="my-8 border-nhs-pale-grey" />
 
       <p className="mb-2">
