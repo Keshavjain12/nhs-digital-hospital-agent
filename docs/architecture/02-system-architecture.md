@@ -225,7 +225,7 @@ Per brief §5, no dependency without a justification.
 
 | Choice | Reason | Rejected alternative |
 |---|---|---|
-| Next.js 15 App Router | Route groups per portal; native i18n routing; server components shrink dashboard bundles | Vite SPA — would need a separate router, i18n and SSR story |
+| Next.js 16 App Router | Route groups per portal; native i18n routing; server components shrink dashboard bundles | Vite SPA — would need a separate router, i18n and SSR story |
 | TypeScript | Contract safety across a 3-portal surface; generated API types are worthless without it | — |
 | Tailwind CSS | Design tokens map directly to NHS Service Manual values; no runtime CSS-in-JS cost | CSS Modules — more boilerplate for a token-driven system |
 | TanStack Query | Booking and queue need cache invalidation, retries, and request dedup. Hand-rolling this is where bugs live | SWR — comparable; TanStack has better mutation/rollback ergonomics for booking |
