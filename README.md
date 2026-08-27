@@ -53,7 +53,7 @@ begins once the two open decisions in `ASSUMPTIONS.md` (B1, B6) are resolved.
 ## Architecture at a glance
 
 ```
-Next.js 15 (App Router, TS, Tailwind)
+Next.js 16 (App Router, TS, Tailwind)
    patient portal · staff portal · admin portal
             │  typed client generated from OpenAPI
             ▼
@@ -86,7 +86,7 @@ Full detail in `docs/architecture/02-system-architecture.md`.
 
 | Layer | Choice | Why |
 |---|---|---|
-| Frontend | Next.js 15, TypeScript, Tailwind | Route groups per portal; native i18n routing; server components for dashboards |
+| Frontend | Next.js 16, TypeScript, Tailwind | Route groups per portal; native i18n routing; server components for dashboards |
 | API state | TanStack Query | Cache invalidation and mutation rollback for booking |
 | Charts | Recharts | SVG we can annotate for screen readers |
 | Backend | FastAPI, Pydantic v2 | OpenAPI generation feeds the frontend type generator |
