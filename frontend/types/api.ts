@@ -25,6 +25,19 @@ export type PasswordResetRequest = Schemas["PasswordResetRequest"];
 export type PasswordResetConfirm = Schemas["PasswordResetConfirm"];
 export type ApiErrorBody = Schemas["ErrorResponse"];
 
+// --- Patients ---------------------------------------------------------------
+export type PatientListItem = Schemas["PatientListItem"];
+export type PatientListResponse = Schemas["PatientListResponse"];
+export type PatientSummary = Schemas["PatientSummary"];
+export type PatientDetailResponse = Schemas["PatientDetailResponse"];
+export type BreakglassResponse = Schemas["BreakglassResponse"];
+
+// --- Administration ---------------------------------------------------------
+export type OverviewResponse = Schemas["OverviewResponse"];
+export type KpiCard = Schemas["KpiCard"];
+export type AuditEntry = Schemas["AuditEntry"];
+export type AuditListResponse = Schemas["AuditListResponse"];
+
 /**
  * Error codes the UI branches on.
  *

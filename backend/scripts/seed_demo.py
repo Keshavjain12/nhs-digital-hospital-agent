@@ -33,7 +33,7 @@ from app.core.db import get_session_factory
 from app.core.security import hash_password
 from app.models.base import DataOrigin, UserRole, UserStatus
 from app.models.clinical import Patient
-from app.models.identity import Staff, User
+from app.models.identity import CareAssignment, Staff, User
 from app.models.operational import Department, Site
 from app.utils import nhs_number as nhs
 
@@ -84,6 +84,24 @@ DEMO_ACCOUNTS: tuple[DemoAccount, ...] = (
     ),
 )
 
+# Synthetic patients for the clinical queue. Names are invented; every one carries a
+# reserved-domain address, an Ofcom drama-range number and a 999-range NHS number, so no
+# generated contact detail can reach a real person.
+QUEUE_PATIENTS = [
+    ("Margaret", "Whitfield", date(1948, 2, 11), "Female", True, "cy-GB"),
+    ("Tomasz", "Nowak", date(1991, 7, 3), "Male", True, "pl-PL"),
+    ("Ade", "Bakare", date(1983, 11, 21), "Male", False, "en-GB"),
+    ("Fatima", "Al-Rashid", date(1996, 5, 8), "Female", True, "ar"),
+    ("Ellie", "Hargreaves", date(2015, 9, 2), "Female", False, "en-GB"),
+    ("Gordon", "MacLeod", date(1957, 12, 30), "Male", False, "en-GB"),
+    ("Yusuf", "Demir", date(1974, 4, 17), "Male", False, "tr"),
+    ("Bethan", "Price", date(2001, 8, 25), "Female", False, "cy-GB"),
+    ("Ivan", "Petrov", date(1966, 1, 9), "Male", False, "en-GB"),
+    ("Grace", "Adeyemi", date(1989, 10, 14), "Female", False, "en-GB"),
+    ("Harold", "Sims", date(1939, 6, 5), "Male", False, "en-GB"),
+    ("Ana", "Silva", date(1993, 3, 27), "Female", True, "pt-PT"),
+]
+
 DEPARTMENTS = [
     ("AE", "Accident and Emergency"),
     ("GENMED", "General Medicine"),
@@ -127,6 +145,62 @@ async def seed_reference_data(session: AsyncSession) -> Department:
 
     # General Medicine, used as the default department for demo staff.
     return departments[1]
+
+
+async def seed_queue_patients(session: AsyncSession, department: Department) -> None:
+    """Create the synthetic patients a clinician sees, and assign some to the demo staff.
+
+    Only *some* are assigned on purpose. An unassigned patient is what demonstrates the
+    access model: opening that record requires emergency access with a typed
+    justification, which is the behaviour the whole audit story rests on.
+    """
+    doctor = (
+        await session.execute(select(Staff).join(User).where(User.email == f"doctor@{DEMO_DOMAIN}"))
+    ).scalar_one_or_none()
+    nurse = (
+        await session.execute(select(Staff).join(User).where(User.email == f"nurse@{DEMO_DOMAIN}"))
+    ).scalar_one_or_none()
+
+    for index, (given, family, dob, sex, interpreter, language) in enumerate(QUEUE_PATIENTS):
+        existing = (
+            await session.execute(
+                select(Patient).where(Patient.given_name == given, Patient.family_name == family)
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            continue
+
+        patient = Patient(
+            given_name=given,
+            family_name=family,
+            date_of_birth=dob,
+            sex_at_birth=sex,
+            nhs_number=nhs.generate_test_number(100 + index),
+            email=f"{given.lower()}.{family.lower().replace(chr(39), '')}@{DEMO_DOMAIN}",
+            phone_e164=f"+4477009002{index:02d}",
+            address_line1=f"{index + 1} Example Street",
+            city="Exampleton",
+            postcode="EX1 1AA",
+            preferred_language=language,
+            interpreter_needed=interpreter,
+            data_origin=DataOrigin.SYNTHETIC.value,
+        )
+        session.add(patient)
+        await session.flush()
+
+        # Two thirds assigned; the rest deliberately left unassigned so break-glass has
+        # something to demonstrate against.
+        if index % 3 != 2:
+            staff_member = doctor if index % 2 == 0 else nurse
+            if staff_member is not None:
+                session.add(
+                    CareAssignment(
+                        staff_id=staff_member.id,
+                        patient_id=patient.id,
+                        department_id=department.id,
+                        reason="Synthetic demo assignment",
+                    )
+                )
 
 
 async def seed(reset: bool) -> int:
@@ -221,6 +295,9 @@ async def seed(reset: bool) -> int:
 
             created.append((spec.email, "created"))
 
+        # Flushed above; staff rows must exist before assignments can reference them.
+        await session.flush()
+        await seed_queue_patients(session, department)
         await session.commit()
 
     print("\nDemo accounts ready. All synthetic - no real person is described.\n")
