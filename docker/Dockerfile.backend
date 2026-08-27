@@ -1,0 +1,37 @@
+# Backend image. Build context is ./backend (see docker-compose.yml).
+FROM python:3.12-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# build-essential is needed to compile argon2-cffi's extension.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Dependencies are installed before the source is copied, so a code change does not
+# invalidate the dependency layer.
+#
+# The package stub is needed because pyproject.toml declares `packages = ["app"]`, and
+# setuptools fails to build metadata for a package whose directory does not yet exist.
+# The install is editable so that once the real source is copied over the stub, the
+# installed distribution resolves to it rather than to a stale copy in site-packages.
+COPY pyproject.toml ./
+RUN mkdir -p app \
+    && touch app/__init__.py \
+    && pip install --upgrade pip \
+    && pip install -e ".[dev]"
+
+COPY . .
+
+# Never run as root. A container escape should not start from uid 0.
+RUN useradd --create-home --uid 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
