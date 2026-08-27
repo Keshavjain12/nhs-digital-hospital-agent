@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import health
+from app.api.v1 import auth, health
 from app.core.config import Settings, get_settings
 from app.core.db import dispose_engine
 from app.core.errors import (
@@ -82,7 +82,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(Exception, unhandled_error_handler)
 
+    # Health probes stay unversioned at the root: orchestrators and load balancers
+    # should not have to track an API version to know whether the process is alive.
     app.include_router(health.router)
+    app.include_router(auth.router, prefix=settings.api_v1_prefix)
 
     return app
 
