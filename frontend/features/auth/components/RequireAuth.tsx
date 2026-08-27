@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 
 import { useSession } from "@/features/auth/SessionProvider";
+import { ROLE_HOME } from "@/lib/routes";
 import type { UserRole } from "@/types/api";
 
 /**
@@ -36,7 +37,10 @@ export function RequireAuth({
     }
 
     if (roles && !roles.includes(user.role as UserRole)) {
-      router.replace("/not-authorised");
+      // Signed in, but on the wrong portal. Send them to their own home rather than a
+      // dead end: the usual cause is a stale link or a bookmark from another account,
+      // and stranding a correctly signed-in user on an error page helps nobody.
+      router.replace(ROLE_HOME[user.role as UserRole] ?? "/not-authorised");
     }
   }, [user, loading, roles, router]);
 
