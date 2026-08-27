@@ -10,7 +10,7 @@ Covers brief §41 parts C and D.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  PRESENTATION — Next.js 15 (App Router, TypeScript, Tailwind)            │
+│  PRESENTATION — Next.js 16 (App Router, TypeScript, Tailwind)            │
 │                                                                          │
 │   Patient portal        Staff portal           Admin portal              │
 │   ─────────────         ────────────           ────────────              │
