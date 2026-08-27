@@ -11,7 +11,8 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
-    "pydantic>=2.9.0",
+    # [email] pulls in email-validator, required by EmailStr in the auth schemas.
+    "pydantic[email]>=2.9.0",
     "pydantic-settings>=2.6.0",
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30.0",
@@ -57,11 +58,21 @@ ignore = [
 # raise site (`raise ResourceNotFound()`), and the AppError base already carries the
 # suffix. Renaming eleven classes to satisfy a naming rule would not improve the code.
 "app/core/errors.py" = ["N818"]
+# SQLAlchemy's declarative API requires __table_args__ to be a dict/tuple class attribute,
+# and aliasing the dialect's UUID type keeps model columns readable. Both are the library's
+# idiom, not accidents.
+"app/models/*.py" = ["RUF012", "N811"]
+"alembic/versions/*.py" = ["E501"]
+# "Bearer" is an OAuth token *type* name, and the audit constants are event names such as
+# TOKEN_REFRESHED. Neither is a credential; the rule matches on the identifier text alone.
+"app/schemas/auth.py" = ["S105"]
+"app/models/audit.py" = ["S105"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
+    "integration: requires a live PostgreSQL database",
     "security: authorisation, authentication and data-leakage tests",
     "concurrency: booking race-condition tests; require real PostgreSQL",
 ]

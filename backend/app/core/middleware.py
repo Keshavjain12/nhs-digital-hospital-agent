@@ -65,12 +65,34 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Baseline security headers (brief §17).
+# The API itself returns JSON and needs to load nothing at all.
+API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
 
-    The API serves JSON only, so the CSP is maximally restrictive: it needs to load
-    nothing, and `frame-ancestors 'none'` prevents an API error page being framed.
-    """
+# The one exception. FastAPI's /docs is an HTML page that pulls Swagger UI from a CDN, so
+# the strict policy above renders it as a blank white screen - the document loads, every
+# script and stylesheet is blocked, and nothing paints. The failure gives no visible clue
+# that a header caused it.
+#
+# Scoped to the documentation routes only, and those routes do not exist in production
+# (create_app sets docs_url=None there), so this relaxation cannot reach a deployed
+# environment. Hardening step if that ever changes: vendor the Swagger UI assets and serve
+# them from 'self', which also removes the external request this page currently makes.
+DOCS_CSP = (
+    "default-src 'none'; "
+    "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+    "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+    "img-src 'self' data: https://fastapi.tiangolo.com; "
+    "font-src 'self' https://cdn.jsdelivr.net; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'none'"
+)
+
+DOCS_PATHS = frozenset({"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"})
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Baseline security headers (brief §17)."""
 
     async def dispatch(self, request: Request, call_next: RequestHandler) -> Response:
         response = await call_next(request)
@@ -79,7 +101,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+            DOCS_CSP if request.url.path in DOCS_PATHS else API_CSP,
         )
         response.headers.setdefault(
             "Permissions-Policy", "geolocation=(), microphone=(), camera=()"

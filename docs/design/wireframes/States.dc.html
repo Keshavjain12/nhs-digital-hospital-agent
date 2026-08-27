@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Frutiger W01", Arial, sans-serif; color: #212b32; background: #fff; }
+    a { color: #005eb8; } a:hover { color: #003087; }
+    .lbl { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #4c6272; font-weight: 700; }
+    .cell { border: 1px solid #768692; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .box { background: #f7f9fa; padding: 14px; }
+  </style>
+</helmet>
+
+<div style="padding: 24px; display: flex; flex-direction: column; gap: 18px">
+
+  <div>
+    <h1 style="margin: 0 0 4px; font-size: 28px">Every page ships six states</h1>
+    <p style="margin: 0; color: #4c6272; font-size: 15px; max-width: 78ch">
+      Building only the success case is how a hospital screen ends up blank with no
+      explanation. These are the states each page is expected to handle.
+    </p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+
+    <div class="cell">
+      <span class="lbl">1 &middot; Loading</span>
+      <div class="box">
+        <div style="height: 14px; background: #dbe3e6; width: 70%; margin-bottom: 8px"></div>
+        <div style="height: 14px; background: #dbe3e6; width: 90%; margin-bottom: 8px"></div>
+        <div style="height: 14px; background: #dbe3e6; width: 55%"></div>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272">
+        Announced politely to screen readers. Never a bare spinner with no text.
+      </p>
+    </div>
+
+    <div class="cell">
+      <span class="lbl">2 &middot; Success</span>
+      <div class="box" style="display: flex; flex-direction: column; gap: 8px">
+        <strong style="font-size: 15px">Wed 10 Sep, 10:20</strong>
+        <span style="font-size: 14px; color: #4c6272">Cardiology &middot; Dr Okafor</span>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272">The happy path. The easy one.</p>
+    </div>
+
+    <div class="cell">
+      <span class="lbl">3 &middot; Empty</span>
+      <div class="box" style="text-align: center; border: 1px dashed #768692">
+        <p style="margin: 0 0 8px; font-size: 15px">You have no appointments booked.</p>
+        <span style="display: inline-block; background: #007f3b; color: #fff; font-weight: 700; font-size: 14px; padding: 9px 16px">Book an appointment</span>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272">
+        Empty is not an error. It says what is true and offers the next step.
+      </p>
+    </div>
+
+    <div class="cell">
+      <span class="lbl">4 &middot; Error</span>
+      <div class="box" style="border-left: 8px solid #d5281b; background: #fdf3f2">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px">
+          <span style="flex: none; width: 22px; height: 22px; border-radius: 50%; background: #d5281b; color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center">!</span>
+          <strong style="font-size: 15px">We could not load this</strong>
+        </div>
+        <p style="margin: 0 0 8px; font-size: 14px">Nothing has changed. You can try again.</p>
+        <span style="display: inline-block; border: 2px solid #212b32; font-weight: 700; font-size: 14px; padding: 7px 14px">Try again</span>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272">
+        Plain words, no codes, no stack traces. Always a way forward.
+      </p>
+    </div>
+
+    <div class="cell">
+      <span class="lbl">5 &middot; Not permitted</span>
+      <div class="box" style="border-left: 8px solid #d5281b; background: #fdf3f2">
+        <strong style="font-size: 15px; display: block; margin-bottom: 6px">You cannot view this page</strong>
+        <p style="margin: 0 0 8px; font-size: 14px">
+          You are signed in as <strong>A. Rahman</strong>. This account does not have access.
+        </p>
+        <a href="#" style="font-size: 14px; font-weight: 700">Go to your home page</a>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272">
+        Names the account, and offers a way back to work rather than a dead end.
+      </p>
+    </div>
+
+    <div class="cell">
+      <span class="lbl">6 &middot; Not found</span>
+      <div class="box">
+        <strong style="font-size: 15px; display: block; margin-bottom: 6px">Page not found</strong>
+        <p style="margin: 0 0 8px; font-size: 14px">
+          If you typed the address, check it is correct.
+        </p>
+        <a href="#" style="font-size: 14px; font-weight: 700">Go to the home page</a>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272">
+        A missing record returns this, never &ldquo;not permitted&rdquo; &mdash; that would confirm it exists.
+      </p>
+    </div>
+
+  </div>
+
+  <div style="border-top: 2px solid #212b32; padding-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+    <div>
+      <div class="lbl" style="margin-bottom: 6px">Colour is never alone</div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272">
+        Every status carries an icon and a word as well as a colour.
+      </p>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom: 6px">Targets are 44px</div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272">
+        The floor for a nurse tapping a tablet with gloves on.
+      </p>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom: 6px">Focus is unmissable</div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272">
+        Yellow block with a black underline, on every focusable element.
+      </p>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

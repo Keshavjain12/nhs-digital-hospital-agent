@@ -1,0 +1,73 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Patient journey" },
+    { "id": "page-2", "name": "Clinical" },
+    { "id": "page-3", "name": "Operations & patterns" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "page-1", "x": 0, "y": 0, "w": 860, "h": 900 },
+    { "file": "Chatbot.dc.html", "page": "page-1", "x": 960, "y": 0, "w": 480, "h": 900 },
+    { "file": "Triage.dc.html", "page": "page-1", "x": 1540, "y": 0, "w": 760, "h": 900 },
+    { "file": "Booking.dc.html", "page": "page-1", "x": 0, "y": 1020, "w": 860, "h": 960 },
+    { "file": "BookingOutcome.dc.html", "page": "page-1", "x": 960, "y": 1020, "w": 820, "h": 960 },
+
+    { "file": "StaffQueue.dc.html", "page": "page-2", "x": 0, "y": 0, "w": 1180, "h": 880 },
+    { "file": "Breakglass.dc.html", "page": "page-2", "x": 1280, "y": 0, "w": 760, "h": 880 },
+    { "file": "AIReview.dc.html", "page": "page-2", "x": 0, "y": 1000, "w": 1180, "h": 940 },
+
+    { "file": "AdminDashboard.dc.html", "page": "page-3", "x": 0, "y": 0, "w": 1180, "h": 940 },
+    { "file": "ModelMonitoring.dc.html", "page": "page-3", "x": 1280, "y": 0, "w": 1180, "h": 940 },
+    { "file": "States.dc.html", "page": "page-3", "x": 0, "y": 1060, "w": 1180, "h": 720 }
+  ],
+  "annotations": [
+    {
+      "id": "note-journey",
+      "page": "page-1",
+      "x": 0,
+      "y": -150,
+      "w": 700,
+      "text": "PATIENT JOURNEY — Sprint 1 wireframes\n\nSymptom check → urgency suggestion → slot → confirmation.\nThe assistant never diagnoses, and a red flag stops the conversation and routes to 999.\n\nBuilt so far: dashboard, sign-in, registration. The rest is Sprint 2–3."
+    },
+    {
+      "id": "note-conflict",
+      "page": "page-1",
+      "x": 960,
+      "y": 2010,
+      "w": 820,
+      "text": "The conflict state is the one that matters. Two patients can want 10:20 at the same instant, so the database — not the UI — decides who gets it. The loser is told plainly that nothing was booked."
+    },
+    {
+      "id": "note-clinical",
+      "page": "page-2",
+      "x": 0,
+      "y": -150,
+      "w": 760,
+      "text": "CLINICAL — access is earned, not assumed\n\nA clinician sees records they are assigned to. Anything else needs emergency access with a typed reason, which expires and is logged.\n\nPriority flags are a suggestion from a symptom checker. They are never presented as a decision."
+    },
+    {
+      "id": "note-aireview",
+      "page": "page-2",
+      "x": 1280,
+      "y": 1000,
+      "w": 620,
+      "text": "The approval gate.\n\nAn AI draft is not the record. It becomes the record only when a named clinician approves it, and the original draft is kept unchanged alongside their edits.\n\nThere is no default, and no timeout that approves on its own."
+    },
+    {
+      "id": "note-ops",
+      "page": "page-3",
+      "x": 0,
+      "y": -150,
+      "w": 760,
+      "text": "OPERATIONS — aggregates, never identities\n\nAdministrators see that a record was accessed, not whose. Operational authority is not clinical authority.\n\nModel monitoring shows behaviour. It is not clinical governance and does not replace a safety case."
+    },
+    {
+      "id": "note-states",
+      "page": "page-3",
+      "x": 1280,
+      "y": 1060,
+      "w": 560,
+      "text": "Shared patterns every screen inherits, so the six states and the accessibility rules are decided once rather than per page."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

@@ -42,3 +42,10 @@ coverage/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Frontend
+node_modules/
+.next/
+out/
+.env.local
+next-env.d.ts
