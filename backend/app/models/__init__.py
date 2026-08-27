@@ -19,8 +19,21 @@ from app.models.identity import (
     User,
 )
 from app.models.operational import Department, Site
+from app.models.scheduling import (
+    Appointment,
+    AppointmentPriority,
+    AppointmentSlot,
+    AppointmentStatus,
+    SlotHold,
+    SlotStatus,
+    SlotType,
+)
 
 __all__ = [
+    "Appointment",
+    "AppointmentPriority",
+    "AppointmentSlot",
+    "AppointmentStatus",
     "AuditAction",
     "AuditLog",
     "AuditResult",
@@ -32,6 +45,9 @@ __all__ = [
     "Patient",
     "RefreshToken",
     "Site",
+    "SlotHold",
+    "SlotStatus",
+    "SlotType",
     "Staff",
     "TimestampMixin",
     "UUIDPrimaryKeyMixin",
