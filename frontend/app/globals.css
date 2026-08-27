@@ -55,42 +55,72 @@
   --text-base--line-height: 1.6;
 }
 
-/* --- Global base ---------------------------------------------------------- */
+/* --- Global base ----------------------------------------------------------
 
-html {
-  /* Never suppress motion preferences; some users get migraines from smooth scroll. */
-  scroll-behavior: smooth;
-}
+  Everything below sits in `@layer base` on purpose.
 
-@media (prefers-reduced-motion: reduce) {
+  Tailwind v4 emits its utilities inside a cascade layer. Unlayered CSS beats *all*
+  layered CSS regardless of specificity, so a bare `a { color: ... }` here silently
+  overrides `text-white` and every other colour utility applied to a link. That is not a
+  subtle bug: the header brand link rendered blue-on-blue and vanished.
+
+  Inside `@layer base` these act as defaults that utilities can override, which is what a
+  base style should do.
+*/
+
+@layer base {
   html {
-    scroll-behavior: auto;
+    /* Never suppress motion preferences; some users get migraines from smooth scroll. */
+    scroll-behavior: smooth;
   }
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
 
-body {
-  background-color: var(--color-nhs-white);
-  color: var(--color-nhs-black);
-  font-family: var(--font-sans);
-  font-size: var(--text-base);
-  line-height: 1.6;
-  /* Prevents iOS Safari inflating text in landscape, which breaks careful layouts. */
-  -webkit-text-size-adjust: 100%;
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--color-nhs-white);
+    color: var(--color-nhs-black);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.6;
+    /* Prevents iOS Safari inflating text in landscape, which breaks careful layouts. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Links inside prose keep their underline: colour alone must not signal a link.
+     A component that needs a different colour (the header brand, a button-style link)
+     overrides these with a utility class, which now works. */
+  a {
+    color: var(--color-nhs-blue);
+    text-decoration: underline;
+    text-underline-offset: 0.1em;
+  }
+
+  a:hover {
+    color: var(--color-nhs-dark-blue);
+    text-decoration-thickness: 3px;
+  }
 }
 
 /*
   One focus style for the whole application.
 
-  Defined globally rather than per-component so a new component cannot ship without a
-  visible focus indicator - the most common way keyboard accessibility silently
-  regresses. Uses :focus-visible so mouse users do not see it on click.
+  Deliberately left UNLAYERED, unlike the base styles above. Unlayered CSS wins over
+  every Tailwind utility, which is exactly what is wanted here: no component can
+  accidentally - or deliberately - ship without a visible focus indicator. That is the
+  most common way keyboard accessibility regresses.
+
+  Uses :focus-visible so mouse users do not see it on click.
 */
 :focus-visible {
   outline: 3px solid var(--color-nhs-focus);
@@ -98,18 +128,6 @@ body {
   box-shadow: 0 4px 0 0 var(--color-nhs-focus-text);
   background-color: var(--color-nhs-focus);
   color: var(--color-nhs-focus-text);
-}
-
-/* Links inside prose keep their underline: colour alone must not signal a link. */
-a {
-  color: var(--color-nhs-blue);
-  text-decoration: underline;
-  text-underline-offset: 0.1em;
-}
-
-a:hover {
-  color: var(--color-nhs-dark-blue);
-  text-decoration-thickness: 3px;
 }
 
 a:focus-visible {
