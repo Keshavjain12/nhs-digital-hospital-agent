@@ -1,0 +1,38 @@
+# Normalise line endings. Without this, a Windows checkout writes CRLF into files that
+# are executed inside Linux containers, where a trailing \r makes a shebang unresolvable
+# and a script fails with a misleading "not found".
+
+# Default: normalise to LF in the repository, let git decide in the working copy.
+* text=auto eol=lf
+
+# Must be LF regardless of platform - these run in the container.
+*.sh            text eol=lf
+*.py            text eol=lf
+Dockerfile*     text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+
+# Source and config
+*.ts            text eol=lf
+*.tsx           text eol=lf
+*.js            text eol=lf
+*.json          text eol=lf
+*.md            text eol=lf
+*.toml          text eol=lf
+*.sql           text eol=lf
+*.css           text eol=lf
+*.html          text eol=lf
+.env.example    text eol=lf
+
+# Binary - never normalise, never diff as text.
+*.pdf           binary
+*.docx          binary
+*.png           binary
+*.jpg           binary
+*.ico           binary
+*.woff          binary
+*.woff2         binary
+
+# Generated: exclude from diffs so a regenerated file does not bury a real change.
+frontend/types/generated/**  linguist-generated=true -diff
+docs/api/openapi.json        linguist-generated=true -diff
