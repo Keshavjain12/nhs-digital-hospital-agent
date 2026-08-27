@@ -60,11 +60,3 @@ export type ErrorCode =
   | "INTERNAL_ERROR";
 
 export type UserRole = "PATIENT" | "NURSE" | "DOCTOR" | "ADMIN";
-
-/** Where a role lands after signing in. */
-export const ROLE_HOME: Record<UserRole, string> = {
-  PATIENT: "/dashboard",
-  NURSE: "/staff/queue",
-  DOCTOR: "/staff/queue",
-  ADMIN: "/admin/dashboard",
-};

@@ -8,7 +8,8 @@ import { Alert, Button, ErrorSummary, TextInput } from "@/components/ui";
 import { useSession } from "@/features/auth/SessionProvider";
 import { loginSchema, toFieldErrors } from "@/features/auth/validation";
 import { ApiError, NetworkError } from "@/lib/api";
-import { ROLE_HOME, type UserRole } from "@/types/api";
+import { resolvePostLoginPath } from "@/lib/routes";
+import type { UserRole } from "@/types/api";
 
 export function LoginForm() {
   const router = useRouter();
@@ -39,12 +40,10 @@ export function LoginForm() {
     setSubmitting(true);
     try {
       const user = await signIn(parsed.data.email, parsed.data.password);
-      // `next` is validated as a same-site path before use. Redirecting to an arbitrary
-      // attacker-supplied URL would make this login page an open redirect, which is a
-      // standard phishing primitive.
-      const next = params.get("next");
-      const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
-      router.replace(safeNext ?? ROLE_HOME[user.role as UserRole] ?? "/dashboard");
+      // Resolves `next` against both same-site rules and the role's own permissions, so a
+      // stale value left in the address bar cannot drop the user on a page they are then
+      // refused. See lib/routes.ts.
+      router.replace(resolvePostLoginPath(user.role as UserRole, params.get("next")));
     } catch (error) {
       if (error instanceof ApiError) {
         // The message is the backend's own wording, which is deliberately identical for
