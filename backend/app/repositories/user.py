@@ -57,6 +57,19 @@ class UserRepository:
         user.last_login_at = datetime.now(UTC)
         await self._session.flush()
 
+    async def clear_expired_lockout(self, user: User) -> None:
+        """Reset the attempt counter once a lockout has elapsed.
+
+        Without this the counter survives the lockout, so the next single wrong password
+        re-locks the account immediately: a user who has forgotten their password waits
+        the full lockout, gets exactly one attempt, and is locked out again. The lockout
+        is meant to slow an attacker down, not to strand the account owner.
+        """
+        if user.locked_until is not None and user.locked_until <= datetime.now(UTC):
+            user.failed_logins = 0
+            user.locked_until = None
+            await self._session.flush()
+
     async def record_failed_login(
         self, user: User, *, max_attempts: int, lockout: datetime
     ) -> bool:

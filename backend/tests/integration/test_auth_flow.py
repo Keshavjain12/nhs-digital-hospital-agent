@@ -406,3 +406,36 @@ async def test_audit_log_rejects_updates(db_session: AsyncSession) -> None:
 
     with pytest.raises(Exception, match="append-only"):
         await db_session.execute(text("UPDATE audit.audit_logs SET action = 'TAMPERED'"))
+
+
+async def test_expired_lockout_restores_a_full_allowance(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A lapsed lockout must reset the attempt counter, not leave it at the threshold.
+
+    Regression: the counter survived the lockout, so the next single wrong password
+    re-locked the account instantly. Someone who had forgotten their password waited the
+    full lockout, got one attempt, and was locked out again - potentially forever. The
+    lockout exists to slow an attacker, not to strand the account owner.
+    """
+    await register(api)
+
+    for _ in range(5):
+        await login(api, "alex.morgan@example.test", "wrong-password-entirely")
+
+    assert (await login(api, "alex.morgan@example.test", VALID_PASSWORD)).status_code == 403
+
+    # Simulate the lockout elapsing.
+    await db_session.execute(
+        text("UPDATE identity.users SET locked_until = now() - interval '1 minute'")
+    )
+
+    # One more wrong attempt must NOT immediately re-lock: the allowance has reset.
+    retry = await login(api, "alex.morgan@example.test", "wrong-password-entirely")
+    assert retry.status_code == 401, "a fresh allowance should give 401, not an instant re-lock"
+
+    counter = await db_session.scalar(text("SELECT failed_logins FROM identity.users"))
+    assert counter == 1, "counter should restart from zero, not resume at the threshold"
+
+    # And the correct password now works.
+    assert (await login(api, "alex.morgan@example.test", VALID_PASSWORD)).status_code == 200

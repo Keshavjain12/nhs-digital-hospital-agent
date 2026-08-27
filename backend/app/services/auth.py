@@ -151,6 +151,11 @@ class AuthService:
         settings = get_settings()
         user = await self.users.get_by_email(email)
 
+        if user is not None:
+            # Clear a lapsed lockout before judging this attempt, so the user gets a full
+            # fresh allowance rather than a single try before being re-locked.
+            await self.users.clear_expired_lockout(user)
+
         # Runs even when the user is absent, so a missing account and a wrong password
         # take the same time. Without this, response latency enumerates accounts.
         password_ok = verify_password(password, user.password_hash if user else None)

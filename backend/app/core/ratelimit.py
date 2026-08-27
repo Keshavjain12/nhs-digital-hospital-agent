@@ -105,7 +105,11 @@ class InMemoryRateLimiter:
 # the IP limit first and the lockout never engages, leaving the account-level control dead
 # while appearing to be configured.
 LOGIN_LIMIT = RateLimit(max_events=15, window_seconds=900)
-REGISTRATION_LIMIT = RateLimit(max_events=3, window_seconds=3600)
+# Keyed on client IP, so this counts everyone behind one address. Three per hour
+# false-positives on any shared connection - a household, a ward, a university - and the
+# person refused has no way to tell it was not their own mistake. Ten still stops bulk
+# account creation while leaving legitimate shared use unaffected.
+REGISTRATION_LIMIT = RateLimit(max_events=10, window_seconds=3600)
 PASSWORD_RESET_LIMIT = RateLimit(max_events=3, window_seconds=3600)
 AUTHENTICATED_LIMIT = RateLimit(max_events=300, window_seconds=60)
 ANONYMOUS_LIMIT = RateLimit(max_events=60, window_seconds=60)
