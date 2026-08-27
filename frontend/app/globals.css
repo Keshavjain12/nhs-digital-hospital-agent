@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+/*
+  Design tokens derived from the NHS.UK design system (NHS Digital Service Manual),
+  per project requirement C4.
+
+  These are the NHS.UK *colour values and spacing scale*, re-implemented as Tailwind v4
+  theme tokens. We do not ship the NHS logo or claim NHS branding - see the non-claims in
+  ASSUMPTIONS.md. Using the palette makes the service feel familiar to NHS users; using
+  the logo would imply an endorsement that does not exist.
+*/
+
+@theme {
+  /* --- Brand ------------------------------------------------------------- */
+  --color-nhs-blue: #005eb8;
+  --color-nhs-dark-blue: #003087;
+  --color-nhs-bright-blue: #0072ce;
+  --color-nhs-light-blue: #41b6e6;
+  --color-nhs-aqua-blue: #00a9ce;
+
+  /* --- Neutrals ---------------------------------------------------------- */
+  --color-nhs-black: #212b32;
+  --color-nhs-dark-grey: #4c6272;
+  --color-nhs-mid-grey: #768692;
+  --color-nhs-pale-grey: #e8edee;
+  --color-nhs-white: #ffffff;
+
+  /* --- Status ------------------------------------------------------------
+     Never used as the sole carrier of meaning. Every status in this UI pairs a
+     colour with an icon and a text label, because ~1 in 12 men has a colour vision
+     deficiency and WCAG 1.4.1 forbids colour-only encoding. */
+  --color-nhs-green: #007f3b;
+  --color-nhs-light-green: #78be20;
+  --color-nhs-warm-yellow: #ffb81c;
+  --color-nhs-orange: #ed8b00;
+  --color-nhs-red: #d5281b;
+  --color-nhs-dark-red: #8a1538;
+  --color-nhs-purple: #330072;
+
+  /* --- Focus -------------------------------------------------------------
+     NHS.UK's focus state: black text on yellow with a solid black underline. Far more
+     visible than a subtle ring, and it meets 3:1 non-text contrast on any background. */
+  --color-nhs-focus: #ffeb3b;
+  --color-nhs-focus-text: #212b32;
+
+  /* --- Type --------------------------------------------------------------
+     Frutiger is the NHS typeface but is not freely licensable, so the Service Manual's
+     own fallback stack is used. Arial is metrically close and universally available. */
+  --font-sans: "Frutiger W01", Arial, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Base is 16px minimum. The Service Manual sets 19px for body copy on desktop:
+     this service is used by older patients and by staff on poor monitors, and small
+     text is the single most common accessibility complaint. */
+  --text-base: 1.1875rem;
+  --text-base--line-height: 1.6;
+}
+
+/* --- Global base ----------------------------------------------------------
+
+  Everything below sits in `@layer base` on purpose.
+
+  Tailwind v4 emits its utilities inside a cascade layer. Unlayered CSS beats *all*
+  layered CSS regardless of specificity, so a bare `a { color: ... }` here silently
+  overrides `text-white` and every other colour utility applied to a link. That is not a
+  subtle bug: the header brand link rendered blue-on-blue and vanished.
+
+  Inside `@layer base` these act as defaults that utilities can override, which is what a
+  base style should do.
+*/
+
+@layer base {
+  html {
+    /* Never suppress motion preferences; some users get migraines from smooth scroll. */
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--color-nhs-white);
+    color: var(--color-nhs-black);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.6;
+    /* Prevents iOS Safari inflating text in landscape, which breaks careful layouts. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Links inside prose keep their underline: colour alone must not signal a link.
+     A component that needs a different colour (the header brand, a button-style link)
+     overrides these with a utility class, which now works. */
+  a {
+    color: var(--color-nhs-blue);
+    text-decoration: underline;
+    text-underline-offset: 0.1em;
+  }
+
+  a:hover {
+    color: var(--color-nhs-dark-blue);
+    text-decoration-thickness: 3px;
+  }
+}
+
+/*
+  One focus style for the whole application.
+
+  Deliberately left UNLAYERED, unlike the base styles above. Unlayered CSS wins over
+  every Tailwind utility, which is exactly what is wanted here: no component can
+  accidentally - or deliberately - ship without a visible focus indicator. That is the
+  most common way keyboard accessibility regresses.
+
+  Uses :focus-visible so mouse users do not see it on click.
+*/
+:focus-visible {
+  outline: 3px solid var(--color-nhs-focus);
+  outline-offset: 0;
+  box-shadow: 0 4px 0 0 var(--color-nhs-focus-text);
+  background-color: var(--color-nhs-focus);
+  color: var(--color-nhs-focus-text);
+}
+
+a:focus-visible {
+  color: var(--color-nhs-focus-text);
+}
+
+/* Honour Windows High Contrast / forced-colors mode rather than fighting it. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid CanvasText;
+  }
+}
+
+/* Utility: available to screen readers, invisible on screen.
+   Used for chart data tables, form hints and skip links. */
+@utility sr-only-focusable {
+  &:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}

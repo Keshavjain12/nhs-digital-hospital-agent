@@ -77,7 +77,7 @@ Full Stack owns 19 of the 112 tasks. Mapping each to a concrete deliverable in t
 | # | Task (verbatim from plan) | Module | Deliverable |
 |---|---|---|---|
 | FS-1.1 | Create UX wireframes: patient portal, staff dashboard, chatbot widget | Design | `docs/architecture/04-frontend-spec.md` + wireframe canvas |
-| FS-1.2 | Set up frontend repo (React/Next.js) with component library | Frontend shell | `frontend/` Next.js 15 + TS + Tailwind, CI-ready |
+| FS-1.2 | Set up frontend repo (React/Next.js) with component library | Frontend shell | `frontend/` Next.js 16 + TS + Tailwind, CI-ready |
 | FS-1.3 | Build design system per NHS Digital Service Manual | Design system | `frontend/components/ui/*` — 19 primitives, all keyboard-accessible |
 | FS-1.4 | Build basic auth pages (login, registration, password reset) | Auth UI | `(public)` route group + protected-route middleware |
 | FS-1.5 | Connect frontend skeleton to backend API stub | Integration | Typed API client, generated from the OpenAPI contract |

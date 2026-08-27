@@ -83,6 +83,17 @@ class Settings(BaseSettings):
         return self.environment is Environment.PRODUCTION
 
     @property
+    def cookie_secure(self) -> bool:
+        """Whether Set-Cookie carries the Secure flag.
+
+        True everywhere a real deployment exists. False for local development and the test
+        suite, which both run over plain http - a Secure cookie is simply never sent back
+        by the client there, so the refresh flow would fail in a way that looks like a
+        session bug rather than a transport setting.
+        """
+        return self.environment not in {Environment.DEVELOPMENT, Environment.TESTING}
+
+    @property
     def debug_errors(self) -> bool:
         """Whether internal error detail may be echoed to the client.
 
