@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 
 import { NonClinicalBanner, SkipLink } from "@/components/ui";
 import { SessionProvider } from "@/features/auth/SessionProvider";
+import { QueryProvider } from "@/lib/query";
 
 import "./globals.css";
 
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="flex min-h-screen flex-col bg-nhs-white">
         <SkipLink />
         <NonClinicalBanner />
-        <SessionProvider>{children}</SessionProvider>
+        <QueryProvider>
+          <SessionProvider>{children}</SessionProvider>
+        </QueryProvider>
       </body>
     </html>
   );

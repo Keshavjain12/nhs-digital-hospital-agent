@@ -188,10 +188,200 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search patients (clinical staff only) */
+        get: operations["list_patients_api_v1_patients_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{patient_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one patient record
+         * @description Read a record.
+         *
+         *     A patient may read their own. A clinician may read a record they are assigned to, or
+         *     one they have active emergency access for. Every read is written to the audit trail
+         *     with the basis on which it was allowed.
+         */
+        get: operations["get_patient_api_v1_patients__patient_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{patient_id}/breakglass": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Emergency access to a record outside your care team */
+        post: operations["breakglass_api_v1_patients__patient_id__breakglass_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Operational overview
+         * @description Aggregate counts only. No identity, no clinical content.
+         */
+        get: operations["overview_api_v1_admin_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the audit trail */
+        get: operations["audit_trail_api_v1_admin_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Role and permission reference
+         * @description The access model, served from the code that enforces it.
+         *
+         *     Documentation drifts from behaviour. Serving this from the same enum the
+         *     authorisation dependencies use means the reference cannot silently go stale.
+         */
+        get: operations["roles_api_v1_admin_roles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AccessBasis
+         * @description How this view was authorised. Shown in the UI so the clinician knows they are
+         *     on the record under an emergency override rather than an ordinary assignment.
+         */
+        AccessBasis: {
+            /** Basis */
+            basis: string;
+            /** Expiresat */
+            expiresAt?: string | null;
+        };
+        /** AuditEntry */
+        AuditEntry: {
+            /** Id */
+            id: number;
+            /** Action */
+            action: string;
+            /** Result */
+            result: string;
+            /** Actor */
+            actor: string;
+            /** Actorrole */
+            actorRole: string | null;
+            /** Resourcetype */
+            resourceType: string | null;
+            /** Resourceid */
+            resourceId: string | null;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /**
+             * Occurredat
+             * Format: date-time
+             */
+            occurredAt: string;
+        };
+        /** AuditListResponse */
+        AuditListResponse: {
+            /** Items */
+            items: components["schemas"]["AuditEntry"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        /** BreakglassRequest */
+        BreakglassRequest: {
+            /** Reason */
+            reason: string;
+        };
+        /** BreakglassResponse */
+        BreakglassResponse: {
+            /**
+             * Granteduntil
+             * Format: date-time
+             */
+            grantedUntil: string;
+            /** Message */
+            message: string;
+        };
+        /** DepartmentSummary */
+        DepartmentSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Dataorigin */
+            dataOrigin: string;
+        };
         /** ErrorBody */
         ErrorBody: {
             /** Code */
@@ -231,6 +421,23 @@ export interface components {
             /** Uptimeseconds */
             uptimeSeconds: number;
         };
+        /** KpiCard */
+        KpiCard: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
+            /** Caption */
+            caption: string;
+            /**
+             * Tone
+             * @default neutral
+             * @enum {string}
+             */
+            tone: "neutral" | "attention";
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Email */
@@ -263,6 +470,29 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** OverviewResponse */
+        OverviewResponse: {
+            /** Cards */
+            cards: components["schemas"]["KpiCard"][];
+            /** Departments */
+            departments: components["schemas"]["DepartmentSummary"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** PageMeta */
+        PageMeta: {
+            /** Requestid */
+            requestId?: string | null;
+            /** Dataorigin */
+            dataOrigin?: string | null;
+            /** Page */
+            page: number;
+            /** Pagesize */
+            pageSize: number;
+            /** Totalitems */
+            totalItems: number;
+            /** Totalpages */
+            totalPages: number;
+        };
         /** PasswordResetConfirm */
         PasswordResetConfirm: {
             /** Token */
@@ -274,6 +504,92 @@ export interface components {
         PasswordResetRequest: {
             /** Email */
             email: string;
+        };
+        /** PatientDetailResponse */
+        PatientDetailResponse: {
+            patient: components["schemas"]["PatientSummary"];
+            access: components["schemas"]["AccessBasis"];
+        };
+        /** PatientListItem */
+        PatientListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Givenname */
+            givenName: string;
+            /** Familyname */
+            familyName: string;
+            /** Nhsnumber */
+            nhsNumber: string | null;
+            /**
+             * Dateofbirth
+             * Format: date
+             */
+            dateOfBirth: string;
+            /** Age */
+            age: number;
+            /** Interpreterneeded */
+            interpreterNeeded: boolean;
+            /** Preferredlanguage */
+            preferredLanguage: string;
+            /** Dataorigin */
+            dataOrigin: string;
+            /** Assignedtome */
+            assignedToMe: boolean;
+        };
+        /** PatientListResponse */
+        PatientListResponse: {
+            /** Items */
+            items: components["schemas"]["PatientListItem"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        /** PatientSummary */
+        PatientSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Givenname */
+            givenName: string;
+            /** Familyname */
+            familyName: string;
+            /** Nhsnumber */
+            nhsNumber: string | null;
+            /**
+             * Dateofbirth
+             * Format: date
+             */
+            dateOfBirth: string;
+            /** Age */
+            age: number;
+            /** Sexatbirth */
+            sexAtBirth: string | null;
+            /** Email */
+            email: string | null;
+            /** Phonee164 */
+            phoneE164: string | null;
+            /** Addressline1 */
+            addressLine1: string | null;
+            /** City */
+            city: string | null;
+            /** Postcode */
+            postcode: string | null;
+            /** Preferredlanguage */
+            preferredLanguage: string;
+            /** Interpreterneeded */
+            interpreterNeeded: boolean;
+            /** Accessibilityneeds */
+            accessibilityNeeds: string[] | null;
+            /** Dataorigin */
+            dataOrigin: string;
+            /**
+             * Registeredat
+             * Format: date-time
+             */
+            registeredAt: string;
         };
         /** ReadyResponse */
         ReadyResponse: {
@@ -343,6 +659,20 @@ export interface components {
              * @constant
              */
             role: "PATIENT";
+        };
+        /**
+         * ResponseMeta
+         * @description The `meta` block carried by every successful response.
+         *
+         *     `data_origin` is not optional decoration. It is how the frontend knows to render the
+         *     synthetic-data notice, and it is the mechanism that makes "never present synthetic
+         *     data as real" (brief §7) structural rather than a matter of discipline.
+         */
+        ResponseMeta: {
+            /** Requestid */
+            requestId?: string | null;
+            /** Dataorigin */
+            dataOrigin?: string | null;
         };
         /** UserSummary */
         UserSummary: {
@@ -773,6 +1103,317 @@ export interface operations {
             };
             /** @description Authentication failed */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_patients_api_v1_patients_get: {
+        parameters: {
+            query?: {
+                /** @description Name or NHS number */
+                q?: string | null;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientListResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_patient_api_v1_patients__patient_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientDetailResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    breakglass_api_v1_patients__patient_id__breakglass_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreakglassRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreakglassResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_api_v1_admin_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    audit_trail_api_v1_admin_audit_get: {
+        parameters: {
+            query?: {
+                action?: string | null;
+                result?: string | null;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditListResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    roles_api_v1_admin_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator role required */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
