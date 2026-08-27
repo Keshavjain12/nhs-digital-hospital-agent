@@ -44,7 +44,7 @@ Every design decision in `docs/` traces back to an entry here. Classification pe
 
 | # | Proposal | Rationale |
 |---|---|---|
-| P1 | **Next.js 15 App Router + TypeScript** rather than a plain React SPA | Route groups map 1:1 onto the three portals; built-in i18n routing satisfies C11 without a bolt-on; server components keep data-heavy dashboard bundles small; middleware gives one place for role-based redirects. |
+| P1 | **Next.js 16 App Router + TypeScript** rather than a plain React SPA | Route groups map 1:1 onto the three portals; built-in i18n routing satisfies C11 without a bolt-on; server components keep data-heavy dashboard bundles small; middleware gives one place for role-based redirects. |
 | P2 | **PostgreSQL**, with analytics separated as its own schema rather than its own server | Analysis Report §8 requires clinical/operational data kept apart from analytics workloads. Separate schemas now, separate stores later; running two engines during an 8-week build is not worth the cost. |
 | P3 | **Tailwind CSS + a local component library** using tokens taken from the NHS.UK design system | C4. Adopting `nhsuk-frontend` wholesale drags in non-React patterns; taking its tokens and re-implementing accessible React components honours the Service Manual and stays idiomatic. |
 | P4 | **Recharts** for dashboards | SVG output we can inject `<title>`/`<desc>` into, and pair each chart with a visually-hidden data table. Canvas-based libraries make WCAG compliance materially harder. |
