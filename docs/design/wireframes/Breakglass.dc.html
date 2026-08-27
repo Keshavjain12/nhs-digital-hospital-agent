@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Frutiger W01", Arial, sans-serif; color: #212b32; background: #fff; }
+    a { color: #005eb8; } a:hover { color: #003087; }
+    .lbl { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #4c6272; font-weight: 700; }
+  </style>
+</helmet>
+
+<div style="padding: 26px 24px; display: flex; flex-direction: column; gap: 20px">
+
+  <div>
+    <a href="#" style="font-size: 15px">Back to patients</a>
+    <h1 style="margin: 8px 0 0; font-size: 30px">Record not available to you</h1>
+  </div>
+
+  <div style="border: 4px solid #ffb81c; background: #fff9e6; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="flex: none; width: 26px; height: 26px; border-radius: 50%; background: #ffb81c; color: #212b32; font-weight: 700; display: flex; align-items: center; justify-content: center">!</span>
+      <strong style="font-size: 19px">You are not in this patient&rsquo;s care team</strong>
+    </div>
+    <p style="margin: 0; font-size: 15px; max-width: 66ch">
+      You can still open the record if you need to for the patient&rsquo;s care. Doing so is
+      recorded against your name and reviewed by your organisation.
+    </p>
+  </div>
+
+  <div style="border: 1px solid #768692; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+    <h2 style="margin: 0; font-size: 21px">Request emergency access</h2>
+
+    <div>
+      <div style="font-size: 16px; font-weight: 700; margin-bottom: 4px">
+        Why do you need this record? <span style="font-weight: 400; color: #4c6272">(required)</span>
+      </div>
+      <p style="margin: 0 0 8px; font-size: 14px; color: #4c6272; max-width: 64ch">
+        Be specific. This is stored permanently. &ldquo;Urgent&rdquo; on its own is not a reason.
+      </p>
+      <div style="border: 2px solid #212b32; padding: 12px; min-height: 92px; font-size: 15px; color: #4c6272">
+        Patient arrived unconscious in A&amp;E with no assigned care team present&hellip;
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; color: #4c6272">
+        <span>At least 20 characters</span><span>68 characters</span>
+      </div>
+    </div>
+
+    <div style="border-left: 8px solid #4c6272; background: #f7f9fa; padding: 12px 14px">
+      <div class="lbl" style="margin-bottom: 6px">What happens next</div>
+      <ul style="margin: 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 5px">
+        <li>Access lasts <strong>4 hours</strong>, then ends on its own</li>
+        <li>Your name, the reason and the time are recorded</li>
+        <li>The record shows an <strong>Emergency access</strong> marker while you are in it</li>
+      </ul>
+    </div>
+
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
+      <span style="background: #d5281b; color: #fff; font-weight: 700; padding: 13px 24px; box-shadow: inset 0 -4px 0 0 #7c1509">Open record with emergency access</span>
+      <a href="#" style="font-weight: 700">Cancel</a>
+    </div>
+  </div>
+
+  <p style="margin: 0; font-size: 13px; color: #4c6272; max-width: 70ch">
+    Design note: this exists because clinical reality does not respect assignment tables. A
+    patient can arrive in front of a clinician who has no prior relationship with them, and
+    refusing outright would be unsafe. Access is granted &mdash; but loudly.
+  </p>
+
+</div>
+</x-dc>
+</body>
+</html>

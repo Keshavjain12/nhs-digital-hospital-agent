@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Frutiger W01", Arial, sans-serif; color: #212b32; background: #fff; }
+    a { color: #005eb8; } a:hover { color: #003087; }
+    .lbl { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #4c6272; font-weight: 700; }
+    .sep { border-top: 2px dashed #cbd5d8; margin: 4px 0 0; padding-top: 22px; }
+  </style>
+</helmet>
+
+<div style="padding: 26px 24px; display: flex; flex-direction: column; gap: 22px">
+
+  <div>
+    <span class="lbl">State A &mdash; booked</span>
+    <div style="background: #007f3b; color: #fff; padding: 20px; margin-top: 8px">
+      <h1 style="margin: 0 0 6px; font-size: 28px">Appointment booked</h1>
+      <p style="margin: 0; font-size: 16px">
+        Reference <strong style="font-family: ui-monospace, monospace">APT-2026-000481</strong>
+      </p>
+    </div>
+
+    <div style="border: 1px solid #768692; border-top: 0; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; gap: 32px; flex-wrap: wrap">
+        <div><div class="lbl">When</div><strong style="font-size: 17px">Wed 10 Sep, 10:20</strong></div>
+        <div><div class="lbl">Department</div><strong style="font-size: 17px">Cardiology</strong></div>
+        <div><div class="lbl">Clinician</div><strong style="font-size: 17px">Dr D. Okafor</strong></div>
+      </div>
+      <div style="border-top: 1px solid #e8edee; padding-top: 12px; display: flex; align-items: flex-start; gap: 10px">
+        <span style="flex: none; width: 24px; height: 24px; border-radius: 50%; background: #005eb8; color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center">i</span>
+        <p style="margin: 0; font-size: 15px">
+          We have sent a confirmation to <strong>patient@example.test</strong> and will
+          remind you two days before.
+        </p>
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap">
+        <span style="background: #e8edee; color: #212b32; font-weight: 700; padding: 12px 20px; box-shadow: inset 0 -4px 0 0 #b6bfc2">Add to calendar</span>
+        <span style="background: #e8edee; color: #212b32; font-weight: 700; padding: 12px 20px; box-shadow: inset 0 -4px 0 0 #b6bfc2">View appointment</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep">
+    <span class="lbl">State B &mdash; slot taken while choosing (HTTP 409)</span>
+
+    <div style="border: 4px solid #d5281b; padding: 18px; margin-top: 8px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span style="flex: none; width: 26px; height: 26px; border-radius: 50%; background: #d5281b; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center">!</span>
+        <strong style="font-size: 20px">That time has just been taken</strong>
+      </div>
+      <p style="margin: 0; font-size: 16px; max-width: 58ch">
+        Someone booked <strong>10:20</strong> while you were choosing. Nothing has been
+        booked for you and you have not lost your place.
+      </p>
+      <div>
+        <div class="lbl" style="margin-bottom: 8px">Nearest alternatives</div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <span style="border: 2px solid #212b32; padding: 11px 18px; font-weight: 700">10:00</span>
+          <span style="border: 2px solid #212b32; padding: 11px 18px; font-weight: 700">11:00</span>
+          <span style="border: 2px solid #212b32; padding: 11px 18px; font-weight: 700">14:40</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 4px">
+        <span style="background: #007f3b; color: #fff; font-weight: 700; padding: 12px 22px; box-shadow: inset 0 -4px 0 0 #00401e">Choose another time</span>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #4c6272; border-top: 1px solid #e8edee; padding-top: 10px">
+        Design note: the message says what happened and what is true now &mdash; that nothing
+        was booked. It never blames the patient for being slow.
+      </p>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
