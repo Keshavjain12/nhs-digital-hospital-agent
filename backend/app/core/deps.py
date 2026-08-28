@@ -141,11 +141,16 @@ VerifiedPrincipal = Annotated[Principal, Depends(get_verified_principal)]
 
 def require_roles(
     *allowed: UserRole,
+    message: str | None = None,
 ) -> Callable[..., Coroutine[Any, Any, Principal]]:
     """Restrict a route to the given roles.
 
-    Denials are audited. A pattern of PERMISSION_DENIED events for one actor is one of the
-    few reliable signals of either a compromised account or a broken client.
+    `message` explains *why* where the reason is a deliberate design decision rather than a
+    missing permission. Without it an administrator refused clinical data sees a bare "you
+    do not have permission", which reads as a misconfiguration and gets reported as a bug.
+
+    Denials are audited either way. A pattern of PERMISSION_DENIED events for one actor is
+    one of the few reliable signals of either a compromised account or a broken client.
     """
     allowed_set = frozenset(allowed)
 
@@ -167,14 +172,34 @@ def require_roles(
                 metadata={"requiredRoles": sorted(role.value for role in allowed_set)},
             )
             await session.commit()
-            raise PermissionDenied()
+            # AppError falls back to the class default when message is None.
+            raise PermissionDenied(message)
         return principal
 
     return dependency
 
 
-RequireAdmin = Annotated[Principal, Depends(require_roles(UserRole.ADMIN))]
-RequireClinician = Annotated[Principal, Depends(require_roles(UserRole.DOCTOR, UserRole.NURSE))]
+RequireAdmin = Annotated[
+    Principal,
+    Depends(
+        require_roles(
+            UserRole.ADMIN,
+            message="This is available to administrator accounts only.",
+        )
+    ),
+]
+
+#: Clinical content. Administrators are excluded by design, not by oversight - see
+#: docs/security/rbac-and-audit.md §3 - so the refusal says so.
+CLINICAL_ONLY_MESSAGE = (
+    "Only clinical staff can see this. Administrator accounts are excluded from clinical "
+    "content by design, not by a missing permission."
+)
+
+RequireClinician = Annotated[
+    Principal,
+    Depends(require_roles(UserRole.DOCTOR, UserRole.NURSE, message=CLINICAL_ONLY_MESSAGE)),
+]
 RequirePatient = Annotated[Principal, Depends(require_roles(UserRole.PATIENT))]
 RequireStaff = Annotated[
     Principal, Depends(require_roles(UserRole.DOCTOR, UserRole.NURSE, UserRole.ADMIN))

@@ -12,6 +12,7 @@ import uuid
 from datetime import date, datetime
 
 from app.schemas.base import CamelModel, PageMeta
+from app.schemas.triage import TriageSummary
 
 
 class PatientListItem(CamelModel):
@@ -27,6 +28,10 @@ class PatientListItem(CamelModel):
     # Whether this clinician has a care relationship with the patient. Drives the UI's
     # "assigned to you" marker and whether opening the record needs break-glass.
     assigned_to_me: bool
+    #: Most recent automated urgency, if the patient has done a symptom check. Null is a
+    #: real state - most patients have not - and the UI must show it as "none recorded"
+    #: rather than as a default band.
+    latest_triage: TriageSummary | None = None
 
 
 class PatientSummary(CamelModel):
@@ -65,6 +70,7 @@ class AccessBasis(CamelModel):
 class PatientDetailResponse(CamelModel):
     patient: PatientSummary
     access: AccessBasis
+    latest_triage: TriageSummary | None = None
 
 
 class BreakglassRequest(CamelModel):
