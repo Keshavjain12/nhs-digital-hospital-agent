@@ -407,6 +407,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Triage results awaiting review */
+        get: operations["triage_queue_api_v1_triage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/triage/{result_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm or change an automated urgency
+         * @description Record a clinician decision.
+         *
+         *     Agreeing marks the result confirmed. Disagreeing stores the clinician's band
+         *     *alongside* the engine's, which is never edited - so what the system said and what the
+         *     clinician decided remain separately answerable, and the gap between them stays
+         *     measurable.
+         */
+        post: operations["review_triage_api_v1_triage__result_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/overview": {
         parameters: {
             query?: never;
@@ -821,6 +863,7 @@ export interface components {
         PatientDetailResponse: {
             patient: components["schemas"]["PatientSummary"];
             access: components["schemas"]["AccessBasis"];
+            latestTriage?: components["schemas"]["TriageSummary"] | null;
         };
         /** PatientListItem */
         PatientListItem: {
@@ -850,6 +893,7 @@ export interface components {
             dataOrigin: string;
             /** Assignedtome */
             assignedToMe: boolean;
+            latestTriage?: components["schemas"]["TriageSummary"] | null;
         };
         /** PatientListResponse */
         PatientListResponse: {
@@ -1036,6 +1080,25 @@ export interface components {
             items: components["schemas"]["SlotItem"][];
             meta: components["schemas"]["ResponseMeta"];
         };
+        /** TriageQueueItemSchema */
+        TriageQueueItemSchema: {
+            triage: components["schemas"]["TriageSummary"];
+            /**
+             * Patientid
+             * Format: uuid
+             */
+            patientId: string;
+            /** Patientname */
+            patientName: string;
+            /** Patientnhsnumber */
+            patientNhsNumber: string | null;
+        };
+        /** TriageQueueResponse */
+        TriageQueueResponse: {
+            /** Items */
+            items: components["schemas"]["TriageQueueItemSchema"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
         /** TriageResultItem */
         TriageResultItem: {
             /**
@@ -1059,6 +1122,56 @@ export interface components {
             reviewStatus: string;
             /** Bookablewithindays */
             bookableWithinDays: number | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+        };
+        /** TriageReviewRequest */
+        TriageReviewRequest: {
+            /** Agrees */
+            agrees: boolean;
+            /** Clinicianseverity */
+            clinicianSeverity?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** TriageReviewResponse */
+        TriageReviewResponse: {
+            triage: components["schemas"]["TriageSummary"];
+            /** Message */
+            message: string;
+        };
+        /** TriageSummary */
+        TriageSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Engineseverity */
+            engineSeverity: string;
+            /** Clinicianseverity */
+            clinicianSeverity: string | null;
+            /** Effectiveseverity */
+            effectiveSeverity: string;
+            /** Recommendedaction */
+            recommendedAction: string;
+            /** Redflags */
+            redFlags: string[] | null;
+            /** Engine */
+            engine: string;
+            /** Engineversion */
+            engineVersion: string;
+            /** Confidence */
+            confidence: number | null;
+            /** Reviewstatus */
+            reviewStatus: string;
+            /** Cliniciannote */
+            clinicianNote: string | null;
+            /** Reviewedat */
+            reviewedAt: string | null;
             /**
              * Createdat
              * Format: date-time
@@ -2398,6 +2511,127 @@ export interface operations {
             };
             /** @description Conversation has ended */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    triage_queue_api_v1_triage_get: {
+        parameters: {
+            query?: {
+                onlyPending?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageQueueResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Clinical staff only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_triage_api_v1_triage__result_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageReviewResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Clinical staff only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

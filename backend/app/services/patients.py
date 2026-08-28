@@ -35,9 +35,17 @@ from app.schemas.patients import (
 )
 from app.services.audit import AuditService
 from app.services.auth import RequestContext
+from app.services.triage_review import TriageReviewService
 
 BREAKGLASS_DURATION = timedelta(hours=4)
 MIN_BREAKGLASS_REASON = 20
+
+
+def _triage_summary(result: object):  # type: ignore[no-untyped-def]
+    """Adapter kept here so the patients router does not import the triage router."""
+    from app.api.v1.triage import to_summary
+
+    return to_summary(result)  # type: ignore[arg-type]
 
 
 def _age(born: date) -> int:
@@ -102,6 +110,10 @@ class PatientService:
         )
 
         assigned = await self._assigned_patient_ids(staff_id)
+        # One query for the whole page rather than one per row.
+        triage_by_patient = await TriageReviewService(self._session).latest_for_patients(
+            [row.id for row in rows]
+        )
 
         await self.audit.record(
             action="PATIENT_SEARCH",
@@ -126,6 +138,11 @@ class PatientService:
                 preferred_language=row.preferred_language,
                 data_origin=row.data_origin,
                 assigned_to_me=row.id in assigned,
+                latest_triage=(
+                    _triage_summary(triage_by_patient[row.id])
+                    if row.id in triage_by_patient
+                    else None
+                ),
             )
             for row in rows
         ], int(total)
@@ -141,7 +158,7 @@ class PatientService:
         actor_patient_id: uuid.UUID | None,
         staff_id: uuid.UUID | None,
         context: RequestContext,
-    ) -> tuple[PatientSummary, AccessBasis]:
+    ) -> tuple[PatientSummary, AccessBasis, object | None]:
         patient = await self._session.get(Patient, patient_id)
         if patient is None or patient.deleted_at is not None:
             raise ResourceNotFound()
@@ -166,7 +183,10 @@ class PatientService:
             metadata={"accessBasis": basis.basis},
         )
 
-        return self._to_summary(patient), basis
+        latest = (await TriageReviewService(self._session).latest_for_patients([patient_id])).get(
+            patient_id
+        )
+        return self._to_summary(patient), basis, (_triage_summary(latest) if latest else None)
 
     async def _authorise_read(
         self,
