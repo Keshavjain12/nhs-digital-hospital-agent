@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { Alert, Badge, Button, ButtonLink, Card } from "@/components/ui";
+import { Alert, Badge, Button, ButtonLink, Card, Dialog } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import type { AppointmentItem, AppointmentListResponse } from "@/types/api";
 
@@ -188,34 +188,41 @@ function AppointmentsList() {
         ))}
       </ul>
 
-      {cancelling && (
-        <Card
-          title="Cancel this appointment?"
-          className="mt-6 border-4 border-nhs-red"
-          headingLevel={2}
-        >
-          <p className="mb-4">
-            {when.format(new Date(cancelling.startsAt))} · {cancelling.departmentName}
-          </p>
-          <p className="mb-4">
-            Cancelling frees this time for someone else. You will need to book again if you
-            still need to be seen.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="warning"
-              loading={cancel.isPending}
-              loadingText="Cancelling"
-              onClick={() => cancel.mutate(cancelling)}
-            >
-              Yes, cancel it
-            </Button>
+      <Dialog
+        open={cancelling !== null}
+        onClose={() => setCancelling(null)}
+        title="Cancel this appointment?"
+        tone="destructive"
+        actions={
+          <>
+            {/* The safe action is first in the DOM, so it takes initial focus and a stray
+                Enter keeps the appointment rather than destroying it. */}
             <Button variant="secondary" onClick={() => setCancelling(null)}>
               Keep this appointment
             </Button>
-          </div>
-        </Card>
-      )}
+            <Button
+              variant="warning"
+              loading={cancel.isPending}
+              loadingText="Cancelling your appointment"
+              onClick={() => cancelling && cancel.mutate(cancelling)}
+            >
+              Yes, cancel it
+            </Button>
+          </>
+        }
+      >
+        {cancelling && (
+          <>
+            <p className="mb-3 font-bold">
+              {when.format(new Date(cancelling.startsAt))} · {cancelling.departmentName}
+            </p>
+            <p>
+              Cancelling frees this time for someone else. You will need to book again if
+              you still need to be seen.
+            </p>
+          </>
+        )}
+      </Dialog>
     </>
   );
 }
