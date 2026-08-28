@@ -5,18 +5,31 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
-import { Alert, Button, ButtonLink, Card, Dialog } from "@/components/ui";
+import { Alert, Button, ButtonLink, Card, Dialog, SafetyText } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { api, ApiError } from "@/lib/api";
+import { useT, type MessageKey } from "@/lib/i18n";
 import type { ChatMessageItem, ChatTurnResponse, TriageResultItem } from "@/types/api";
 
 const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
 
-const BANDS: Record<string, { label: string; border: string; dot: string }> = {
-  URGENT: { label: "Be seen within 24 hours", border: "border-nhs-orange", dot: "bg-nhs-orange" },
-  SOON: { label: "Be seen within a week", border: "border-nhs-blue", dot: "bg-nhs-blue" },
-  ROUTINE: { label: "A routine appointment", border: "border-nhs-mid-grey", dot: "bg-nhs-mid-grey" },
-  SELF_CARE: { label: "Self care", border: "border-nhs-mid-grey", dot: "bg-nhs-mid-grey" },
+const BANDS: Record<string, { labelKey: MessageKey; border: string; dot: string }> = {
+  URGENT: {
+    labelKey: "symptomCheck.band.URGENT",
+    border: "border-nhs-orange",
+    dot: "bg-nhs-orange",
+  },
+  SOON: { labelKey: "symptomCheck.band.SOON", border: "border-nhs-blue", dot: "bg-nhs-blue" },
+  ROUTINE: {
+    labelKey: "symptomCheck.band.ROUTINE",
+    border: "border-nhs-mid-grey",
+    dot: "bg-nhs-mid-grey",
+  },
+  SELF_CARE: {
+    labelKey: "symptomCheck.band.SELF_CARE",
+    border: "border-nhs-mid-grey",
+    dot: "bg-nhs-mid-grey",
+  },
 };
 
 /**
@@ -31,6 +44,8 @@ const BANDS: Record<string, { label: string; border: string; dot: string }> = {
  * warnings read as noise and blunt the one that matters.
  */
 function EmergencyNotice() {
+  const t = useT();
+
   return (
     <section
       aria-labelledby="emergency-heading"
@@ -44,14 +59,13 @@ function EmergencyNotice() {
           >
             !
           </span>
-          Call 999 now
+          <SafetyText id="symptomCheck.emergency.title" />
         </h2>
       </div>
 
       <div className="p-5">
         <p className="mb-4 text-lg">
-          What you have described needs emergency help. Do not wait for an appointment, and
-          do not drive yourself.
+          <SafetyText id="symptomCheck.emergency.body" />
         </p>
 
         <div className="flex flex-wrap items-center gap-4">
@@ -61,10 +75,10 @@ function EmergencyNotice() {
             href="tel:999"
             className="inline-flex min-h-[52px] items-center rounded bg-nhs-red px-6 py-3 text-lg font-bold text-white no-underline shadow-[inset_0_-4px_0_0_#7c1509] hover:bg-[#b31c12] hover:text-white"
           >
-            Call 999
+            {t("symptomCheck.emergency.call")}
           </a>
           <p className="text-sm text-nhs-dark-grey">
-            Or go to your nearest A&amp;E.
+            <SafetyText id="symptomCheck.emergency.orAande" />
           </p>
         </div>
       </div>
@@ -73,6 +87,8 @@ function EmergencyNotice() {
 }
 
 function Message({ message }: { message: ChatMessageItem }) {
+  const t = useT();
+
   if (message.role === "SYSTEM") {
     return (
       <li className="mx-auto max-w-lg border border-nhs-mid-grey bg-nhs-pale-grey px-4 py-3 text-center text-sm">
@@ -88,7 +104,7 @@ function Message({ message }: { message: ChatMessageItem }) {
       <span className="px-1 text-xs font-bold uppercase tracking-wide text-nhs-dark-grey">
         {/* Machine-generated content is always labelled. A patient must never be left to
             infer whether they are reading a person. */}
-        {fromPatient ? "You" : "Automated check"}
+        {fromPatient ? t("symptomCheck.you") : t("symptomCheck.automatedCheck")}
         <span className="sr-only"> at {time.format(new Date(message.createdAt))}</span>
       </span>
       <div
@@ -106,6 +122,8 @@ function Message({ message }: { message: ChatMessageItem }) {
 }
 
 function Outcome({ triage }: { triage: TriageResultItem }) {
+  const t = useT();
+
   // The emergency case is handled by EmergencyNotice at the top of the page. Repeating the
   // instruction here is what made the screen read as four separate warnings.
   if (triage.severity === "EMERGENCY") return null;
@@ -113,26 +131,33 @@ function Outcome({ triage }: { triage: TriageResultItem }) {
   const band = BANDS[triage.severity] ?? BANDS.SOON;
 
   return (
-    <Card title="What we suggest" className={cn("border-4", band.border)} headingLevel={2}>
+    <Card
+      title={t("symptomCheck.outcome.title")}
+      className={cn("border-4", band.border)}
+      headingLevel={2}
+    >
       <div className="mb-3 flex items-center gap-3">
         <span aria-hidden="true" className={cn("size-4 shrink-0 rounded-full", band.dot)} />
-        <strong className="text-xl">{band.label}</strong>
+        <strong className="text-xl">
+          <SafetyText id={band.labelKey} />
+        </strong>
       </div>
 
       <p className="mb-5">{triage.recommendedAction}</p>
 
       <ButtonLink href="/appointments/book" size="lg">
-        See appointments
+        {t("symptomCheck.outcome.seeAppointments")}
       </ButtonLink>
 
       <p className="mt-5 border-t border-nhs-pale-grey pt-4 text-sm text-nhs-dark-grey">
-        <strong>This is not a diagnosis.</strong> It is an automated suggestion to help you
-        choose an appointment, produced by{" "}
-        <span className="font-mono">
-          {triage.engine} {triage.engineVersion}
-        </span>
-        . A clinician has not yet reviewed it. If you feel worse, call NHS 111, or 999 in an
-        emergency.
+        <strong>
+          <SafetyText id="symptomCheck.outcome.notADiagnosis" />
+        </strong>{" "}
+        <SafetyText
+          id="symptomCheck.outcome.producedBy"
+          values={{ engine: `${triage.engine} ${triage.engineVersion}` }}
+        />{" "}
+        <SafetyText id="symptomCheck.outcome.ifWorse" />
       </p>
     </Card>
   );
@@ -140,6 +165,7 @@ function Outcome({ triage }: { triage: TriageResultItem }) {
 
 export default function SymptomCheckPage() {
   const queryClient = useQueryClient();
+  const t = useT();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
@@ -205,10 +231,9 @@ export default function SymptomCheckPage() {
     <>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="mb-2 text-4xl font-bold">Symptom check</h1>
+          <h1 className="mb-2 text-4xl font-bold">{t("symptomCheck.title")}</h1>
           <p className="max-w-2xl text-nhs-dark-grey">
-            Describe how you are feeling and we will help you find the right appointment.
-            This is an automated check, not a clinician, and it does not diagnose.
+            {t("symptomCheck.intro")}
           </p>
         </div>
 
@@ -219,7 +244,7 @@ export default function SymptomCheckPage() {
             variant="secondary"
             onClick={() => (turn.isClosed ? restart() : setConfirmRestart(true))}
           >
-            Start again
+            {t("symptomCheck.startAgain")}
           </Button>
         )}
       </div>
@@ -227,8 +252,8 @@ export default function SymptomCheckPage() {
       {isEmergency && <EmergencyNotice />}
 
       {!turn && (
-        <Card title="Start a symptom check">
-          <p className="mb-2">We will ask a few short questions. You can stop at any time.</p>
+        <Card title={t("symptomCheck.start.title")}>
+          <p className="mb-2">{t("symptomCheck.start.body")}</p>
           <p className="mb-5 text-sm text-nhs-dark-grey">
             If this is an emergency, call <strong>999</strong> rather than using this check.
             For urgent advice call <strong>NHS 111</strong>.
@@ -236,10 +261,10 @@ export default function SymptomCheckPage() {
           <Button
             size="lg"
             loading={startSession.isPending}
-            loadingText="Starting"
+            loadingText={t("common.loading")}
             onClick={() => startSession.mutate()}
           >
-            Start
+            {t("symptomCheck.start.action")}
           </Button>
           {startSession.error && (
             <Alert tone="error" title="Could not start" focusOnMount>
@@ -252,7 +277,7 @@ export default function SymptomCheckPage() {
       {turn && (
         <>
           <section
-            aria-label="Conversation"
+            aria-label={t("symptomCheck.conversation")}
             className="mb-6 rounded border border-nhs-mid-grey bg-[#f7f9fa] p-5"
           >
             <ul
@@ -277,10 +302,10 @@ export default function SymptomCheckPage() {
           {!turn.isClosed && (
             <form onSubmit={handleSubmit} className="mb-6">
               <label htmlFor="reply" className="mb-1 block font-bold">
-                Your reply
+                {t("symptomCheck.reply.label")}
               </label>
               <p id="reply-hint" className="mb-2 text-sm text-nhs-dark-grey">
-                Describe things in your own words. You can start again at any point.
+                {t("symptomCheck.reply.hint")}
               </p>
               <div className="flex flex-wrap gap-3">
                 <input
@@ -298,18 +323,18 @@ export default function SymptomCheckPage() {
                 <Button
                   type="submit"
                   loading={send.isPending}
-                  loadingText="Sending"
+                  loadingText={t("symptomCheck.reply.sending")}
                   disabled={!draft.trim()}
                 >
-                  Send
+                  {t("symptomCheck.reply.send")}
                 </Button>
               </div>
             </form>
           )}
 
           {turn.isClosed && !isEmergency && turn.session.status === "ESCALATED" && (
-            <Alert tone="warning" title="Passed to a member of staff">
-              We have stopped asking questions. Someone will look at this.
+            <Alert tone="warning" title={t("symptomCheck.escalated.title")}>
+              <SafetyText id="symptomCheck.escalated.body" />
             </Alert>
           )}
 
@@ -318,7 +343,7 @@ export default function SymptomCheckPage() {
           {turn.isClosed && (
             <p className="mt-6">
               <Button variant="secondary" onClick={restart} loading={startSession.isPending}>
-                Start a new check
+                {t("symptomCheck.startNew")}
               </Button>
             </p>
           )}
@@ -326,27 +351,26 @@ export default function SymptomCheckPage() {
       )}
 
       <p className="mt-8 text-sm text-nhs-dark-grey">
-        <Link href="/dashboard">Back to your account</Link>
+        <Link href="/dashboard">{t("common.back")}</Link>
       </p>
 
       <Dialog
         open={confirmRestart}
         onClose={() => setConfirmRestart(false)}
-        title="Start again?"
+        title={t("symptomCheck.restart.title")}
         actions={
           <>
             <Button variant="secondary" onClick={() => setConfirmRestart(false)}>
-              Keep going
+              {t("symptomCheck.restart.keepGoing")}
             </Button>
             <Button variant="warning" onClick={restart} loading={startSession.isPending}>
-              Start again
+              {t("symptomCheck.startAgain")}
             </Button>
           </>
         }
       >
         <p>
-          This check will be discarded and a new one started. Nothing you have typed so far
-          will be used to suggest an appointment.
+          {t("symptomCheck.restart.body")}
         </p>
       </Dialog>
     </>

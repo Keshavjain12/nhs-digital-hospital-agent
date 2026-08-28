@@ -1265,6 +1265,8 @@ export interface components {
             patientId?: string | null;
             /** Staffid */
             staffId?: string | null;
+            /** Preferredlanguage */
+            preferredLanguage?: string | null;
         };
         /** ValidationError */
         ValidationError: {
