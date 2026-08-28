@@ -41,6 +41,15 @@ export type AppointmentListResponse = Schemas["AppointmentListResponse"];
 export type AppointmentDetailResponse = Schemas["AppointmentDetailResponse"];
 export type BookingCreatedResponse = Schemas["BookingCreatedResponse"];
 
+// --- Symptom check ----------------------------------------------------------
+export type ChatMessageItem = Schemas["ChatMessageItem"];
+export type ChatSessionItem = Schemas["ChatSessionItem"];
+export type ChatTurnResponse = Schemas["ChatTurnResponse"];
+export type TriageResultItem = Schemas["TriageResultItem"];
+
+/** Triage bands, most urgent first. Mirrors app/services/triage.py. */
+export type TriageSeverity = "EMERGENCY" | "URGENT" | "SOON" | "ROUTINE" | "SELF_CARE";
+
 // --- Administration ---------------------------------------------------------
 export type OverviewResponse = Schemas["OverviewResponse"];
 export type KpiCard = Schemas["KpiCard"];

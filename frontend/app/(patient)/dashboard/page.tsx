@@ -33,6 +33,18 @@ export default function DashboardPage() {
         Welcome back{user ? `, ${user.displayName}` : ""}.
       </p>
 
+      <div className="mb-6 border-4 border-nhs-blue p-5">
+        <p className="mb-1 text-sm font-bold uppercase tracking-wide text-nhs-dark-grey">
+          Not sure what you need?
+        </p>
+        <h2 className="mb-2 text-2xl font-bold">Tell us how you are feeling</h2>
+        <p className="mb-4 max-w-xl text-nhs-dark-grey">
+          Describe your symptoms and we will help you find the right appointment. This is
+          an automated check, not a clinician, and it does not diagnose.
+        </p>
+        <ButtonLink href="/symptom-check">Start symptom check</ButtonLink>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2">
         <Card title="Your details">
           <dl className="space-y-2">

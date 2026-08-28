@@ -9,6 +9,15 @@ from app.models.base import (
     UserStatus,
     UUIDPrimaryKeyMixin,
 )
+from app.models.chat import (
+    ChatMessage,
+    ChatRole,
+    ChatSession,
+    ChatSessionStatus,
+    ChatStage,
+    TriageResult,
+    TriageReviewStatus,
+)
 from app.models.clinical import Patient
 from app.models.identity import (
     BreakglassGrant,
@@ -39,6 +48,11 @@ __all__ = [
     "AuditResult",
     "BreakglassGrant",
     "CareAssignment",
+    "ChatMessage",
+    "ChatRole",
+    "ChatSession",
+    "ChatSessionStatus",
+    "ChatStage",
     "DataOrigin",
     "Department",
     "PasswordResetToken",
@@ -50,6 +64,8 @@ __all__ = [
     "SlotType",
     "Staff",
     "TimestampMixin",
+    "TriageResult",
+    "TriageReviewStatus",
     "UUIDPrimaryKeyMixin",
     "User",
     "UserRole",
