@@ -56,15 +56,29 @@ def database_url() -> Iterator[str]:
     """
 
     async def _create_database() -> None:
+        """Drop and recreate, so the schema always matches the migrations on disk.
+
+        Creating only when absent left a stale database behind: `alembic upgrade head` is a
+        no-op once the version table says head, so editing an unreleased migration changed
+        nothing here. That produced failures with no relationship to the code under test -
+        a column default fixed in the migration was still the old one in the test database.
+
+        A test database is disposable. Rebuilding it each session costs a second and
+        removes an entire class of confusing failure.
+        """
         engine = create_async_engine(_admin_url(), isolation_level="AUTOCOMMIT")
         try:
             async with engine.connect() as conn:
-                exists = await conn.scalar(
-                    text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                # Any connection still open would block the drop.
+                await conn.execute(
+                    text(
+                        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                        "WHERE datname = :name AND pid <> pg_backend_pid()"
+                    ),
                     {"name": TEST_DB_NAME},
                 )
-                if not exists:
-                    await conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
+                await conn.execute(text(f'DROP DATABASE IF EXISTS "{TEST_DB_NAME}"'))
+                await conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
         finally:
             await engine.dispose()
 
@@ -101,7 +115,17 @@ async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
     engine = create_async_engine(database_url, poolclass=None)
     connection = await engine.connect()
     transaction = await connection.begin()
-    factory = async_sessionmaker(bind=connection, expire_on_commit=False)
+    factory = async_sessionmaker(
+        bind=connection,
+        expire_on_commit=False,
+        # Each commit/rollback inside the application acts on a SAVEPOINT rather than the
+        # outer transaction. Without this, a request that legitimately rolls back - a 404
+        # on someone else's record, a booking conflict - unwinds the test's own setup with
+        # it, and the next assertion fails for reasons that have nothing to do with the
+        # behaviour under test. In production every request has its own session, so a
+        # rollback is already isolated; this makes the harness match.
+        join_transaction_mode="create_savepoint",
+    )
     session = factory()
 
     try:
