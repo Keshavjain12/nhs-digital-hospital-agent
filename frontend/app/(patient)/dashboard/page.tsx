@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Alert, Badge, ButtonLink, Card } from "@/components/ui";
 import { useSession } from "@/features/auth/SessionProvider";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import type { AppointmentListResponse } from "@/types/api";
 
 const when = new Intl.DateTimeFormat("en-GB", {
@@ -18,6 +19,7 @@ const when = new Intl.DateTimeFormat("en-GB", {
 
 export default function DashboardPage() {
   const { user } = useSession();
+  const t = useT();
 
   const appointments = useQuery({
     queryKey: ["appointments", false],
@@ -28,58 +30,57 @@ export default function DashboardPage() {
 
   return (
     <>
-      <h1 className="mb-2 text-4xl font-bold">Your account</h1>
+      <h1 className="mb-2 text-4xl font-bold">{t("dashboard.title")}</h1>
       <p className="mb-8 text-nhs-dark-grey">
-        Welcome back{user ? `, ${user.displayName}` : ""}.
+        {t("dashboard.welcome", { name: user?.displayName ?? "" })}
       </p>
 
       <div className="mb-6 border-4 border-nhs-blue p-5">
         <p className="mb-1 text-sm font-bold uppercase tracking-wide text-nhs-dark-grey">
-          Not sure what you need?
+          {t("dashboard.prompt.eyebrow")}
         </p>
-        <h2 className="mb-2 text-2xl font-bold">Tell us how you are feeling</h2>
+        <h2 className="mb-2 text-2xl font-bold">{t("dashboard.prompt.title")}</h2>
         <p className="mb-4 max-w-xl text-nhs-dark-grey">
-          Describe your symptoms and we will help you find the right appointment. This is
-          an automated check, not a clinician, and it does not diagnose.
+          {t("dashboard.prompt.body")}
         </p>
-        <ButtonLink href="/symptom-check">Start symptom check</ButtonLink>
+        <ButtonLink href="/symptom-check">{t("dashboard.prompt.action")}</ButtonLink>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card title="Your details">
+        <Card title={t("dashboard.details.title")}>
           <dl className="space-y-2">
             <div>
-              <dt className="font-bold">Name</dt>
+              <dt className="font-bold">{t("dashboard.details.name")}</dt>
               <dd>{user?.displayName ?? "—"}</dd>
             </div>
             <div>
-              <dt className="font-bold">Email address</dt>
+              <dt className="font-bold">{t("dashboard.details.email")}</dt>
               <dd className="break-words">{user?.email ?? "—"}</dd>
             </div>
             <div>
-              <dt className="font-bold">Account type</dt>
-              <dd>Patient</dd>
+              <dt className="font-bold">{t("dashboard.details.accountType")}</dt>
+              <dd>{t("dashboard.details.patient")}</dd>
             </div>
           </dl>
         </Card>
 
-        <Card title="Appointments">
+        <Card title={t("dashboard.appointments.title")}>
           {appointments.isPending && (
             <p role="status" aria-live="polite">
-              Loading your appointments…
+              {t("common.loading")}
             </p>
           )}
 
           {appointments.error && (
-            <Alert tone="error" title="Could not load your appointments">
+            <Alert tone="error" title={t("common.somethingWentWrong")}>
               {appointments.error.message}
             </Alert>
           )}
 
           {appointments.data && !next && (
             <>
-              <p className="mb-4">You have no upcoming appointments.</p>
-              <ButtonLink href="/appointments/book">Book an appointment</ButtonLink>
+              <p className="mb-4">{t("dashboard.appointments.none")}</p>
+              <ButtonLink href="/appointments/book">{t("dashboard.appointments.book")}</ButtonLink>
             </>
           )}
 
@@ -87,7 +88,7 @@ export default function DashboardPage() {
             <>
               <div className="mb-4 border-l-8 border-nhs-blue bg-[#f7f9fa] p-4">
                 <p className="mb-1 text-sm font-bold uppercase tracking-wide text-nhs-dark-grey">
-                  Your next appointment
+                  {t("dashboard.appointments.next")}
                 </p>
                 <p className="mb-1 text-lg font-bold">{when.format(new Date(next.startsAt))}</p>
                 <p className="mb-2 text-nhs-dark-grey">
@@ -98,7 +99,7 @@ export default function DashboardPage() {
                 </Badge>
               </div>
               <Link href="/appointments" className="font-bold">
-                See all your appointments
+                {t("dashboard.appointments.seeAll")}
               </Link>
             </>
           )}

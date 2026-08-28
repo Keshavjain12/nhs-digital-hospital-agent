@@ -218,4 +218,4 @@ the whole point of the exercise is that the architecture would survive real data
 | D2 | Verify the 999-range NHS number test convention against the NHS Data Dictionary | Full Stack | S1 |
 | D3 | Calibrate DNA rate and wait-time distributions against NHS Open Data | Data Science | S1 |
 | D4 | Confirm whether a TRUD SNOMED licence is obtainable for this project | You | S1 |
-| D5 | Agree the second locale for i18n | You | S3 |
+| D5 | ~~Agree the second locale for i18n~~ Resolved: Welsh (cy-GB), machine-drafted and marked DRAFT. Professional translation and a clinical check of advice strings are still required. | Done | S3 |

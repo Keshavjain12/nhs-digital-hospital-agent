@@ -6,5 +6,8 @@ export { Dialog } from "./Dialog";
 export { Select, TextInput } from "./Field";
 export { NonClinicalBanner } from "./NonClinicalBanner";
 export { SkipLink } from "./SkipLink";
+export { LanguageSwitcher } from "./LanguageSwitcher";
+export { SafetyText } from "./SafetyText";
+export { TranslationNotice } from "./TranslationNotice";
 export { Badge, Table, type Column } from "./Table";
 export { BANDS, TriageBadge, TriagePanel } from "./TriagePanel";
