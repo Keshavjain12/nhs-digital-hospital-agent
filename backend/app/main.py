@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import admin, appointments, auth, health, patients
+from app.api.v1 import admin, appointments, auth, chat, health, patients
 from app.core.config import Settings, get_settings
 from app.core.db import dispose_engine
 from app.core.errors import (
@@ -88,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router, prefix=settings.api_v1_prefix)
     app.include_router(patients.router, prefix=settings.api_v1_prefix)
     app.include_router(appointments.router, prefix=settings.api_v1_prefix)
+    app.include_router(chat.router, prefix=settings.api_v1_prefix)
     app.include_router(admin.router, prefix=settings.api_v1_prefix)
 
     return app

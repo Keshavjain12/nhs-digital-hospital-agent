@@ -29,6 +29,12 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
               Overview
             </Link>
             <Link
+              href="/symptom-check"
+              className="py-3 font-bold text-white no-underline hover:underline"
+            >
+              Symptom check
+            </Link>
+            <Link
               href="/appointments"
               className="py-3 font-bold text-white no-underline hover:underline"
             >
