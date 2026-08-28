@@ -23,7 +23,7 @@ import argparse
 import asyncio
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,9 +35,14 @@ from app.models.base import DataOrigin, UserRole, UserStatus
 from app.models.clinical import Patient
 from app.models.identity import CareAssignment, Staff, User
 from app.models.operational import Department, Site
+from app.models.scheduling import AppointmentSlot, SlotType
 from app.utils import nhs_number as nhs
 
 DEMO_DOMAIN = "example.test"
+
+# Not a password. Argon2 hashes always start with "$argon2", so no input can ever verify
+# against this value - these staff records own timetable slots and are not sign-ins.
+UNUSABLE_PASSWORD_HASH = "!no-login"  # noqa: S105
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,6 +208,158 @@ async def seed_queue_patients(session: AsyncSession, department: Department) -> 
                 )
 
 
+# Weekday clinic pattern per clinician. Deliberately not 24/7: a timetable with no gaps
+# would let the booking screens look plausible while hiding the case that actually matters -
+# a patient searching a day with nothing free.
+# Additional synthetic clinicians, one per department, so the booking screen's department
+# filter is actually exercised. With only the two demo staff every slot is General
+# Medicine, and a filter with one option tests nothing.
+EXTRA_CLINICIANS = (
+    ("Rowan", "Achebe", "Consultant, Cardiology", "CARD"),
+    ("Freya", "Lindqvist", "Consultant, Orthopaedics", "ORTHO"),
+    ("Marcus", "Bell", "Consultant, Paediatrics", "PAEDS"),
+    ("Sofia", "Marchetti", "Consultant, Outpatients", "OUTPT"),
+    ("Idris", "Khan", "Emergency Physician", "AE"),
+)
+
+CLINIC_WEEKDAYS = (0, 1, 2, 3, 4)  # Monday to Friday
+CLINIC_BLOCKS = ((time(9, 0), time(12, 0)), (time(14, 0), time(17, 0)))
+SLOT_MINUTES = 20
+WEEKS_AHEAD = 6
+
+
+async def seed_extra_clinicians(session: AsyncSession) -> None:
+    """Create one clinician per department, beyond the four demo sign-ins.
+
+    These have no login: they exist to own slots, which is what makes availability spread
+    across departments. Staff accounts are provisioned administratively, so a staff record
+    without a usable password is the correct shape rather than a gap.
+    """
+    for index, (given, family, job_title, department_code) in enumerate(EXTRA_CLINICIANS):
+        staff_code = f"SYN-2{index:03d}"
+        existing = (
+            await session.execute(select(Staff).where(Staff.staff_code == staff_code))
+        ).scalar_one_or_none()
+        if existing is not None:
+            continue
+
+        department = (
+            await session.execute(select(Department).where(Department.code == department_code))
+        ).scalar_one_or_none()
+        if department is None:
+            continue
+
+        user = User(
+            email=f"{given.lower()}.{family.lower()}@{DEMO_DOMAIN}",
+            password_hash=UNUSABLE_PASSWORD_HASH,
+            role=UserRole.DOCTOR,
+            status=UserStatus.DISABLED,
+        )
+        session.add(user)
+        await session.flush()
+
+        session.add(
+            Staff(
+                user_id=user.id,
+                staff_code=staff_code,
+                given_name=given,
+                family_name=family,
+                job_title=job_title,
+                department_id=department.id,
+                data_origin=DataOrigin.SYNTHETIC.value,
+            )
+        )
+    await session.flush()
+
+
+async def seed_slots(session: AsyncSession) -> int:
+    """Generate a forward timetable of appointment slots.
+
+    BLOCKER B2 in ASSUMPTIONS.md: no open UK dataset carries clinician availability, so
+    this is generated and marked SYNTHETIC like everything else it produces.
+
+    Slots are created per clinician, and the GiST exclusion constraint from migration 002
+    means an overlapping pair simply cannot be written - so a bug in this generator fails
+    loudly at seed time rather than producing an impossible timetable nobody notices.
+    """
+    clinicians = (
+        (
+            await session.execute(
+                select(Staff)
+                .join(User)
+                .where(User.role.in_([UserRole.DOCTOR, UserRole.NURSE]), Staff.active.is_(True))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not clinicians:
+        return 0
+
+    site = (await session.execute(select(Site).limit(1))).scalar_one_or_none()
+    if site is None:
+        return 0
+
+    departments = (await session.execute(select(Department))).scalars().all()
+    if not departments:
+        return 0
+
+    existing = set(
+        (
+            await session.execute(
+                select(AppointmentSlot.staff_id, AppointmentSlot.starts_at).where(
+                    AppointmentSlot.starts_at >= datetime.now(UTC)
+                )
+            )
+        ).all()
+    )
+
+    # Start tomorrow: a slot earlier today is unbookable the moment it is written, and a
+    # demo whose first page is full of dead times is worse than one with fewer slots.
+    first_day = (datetime.now(UTC) + timedelta(days=1)).date()
+    created = 0
+
+    for clinician in clinicians:
+        department = next(
+            (d for d in departments if d.id == clinician.department_id), departments[0]
+        )
+        for day_offset in range(WEEKS_AHEAD * 7):
+            day = first_day + timedelta(days=day_offset)
+            if day.weekday() not in CLINIC_WEEKDAYS:
+                continue
+
+            for block_start, block_end in CLINIC_BLOCKS:
+                cursor = datetime.combine(day, block_start, tzinfo=UTC)
+                block_finish = datetime.combine(day, block_end, tzinfo=UTC)
+
+                while cursor + timedelta(minutes=SLOT_MINUTES) <= block_finish:
+                    if (clinician.id, cursor) not in existing:
+                        session.add(
+                            AppointmentSlot(
+                                department_id=department.id,
+                                staff_id=clinician.id,
+                                site_id=site.id,
+                                starts_at=cursor,
+                                ends_at=cursor + timedelta(minutes=SLOT_MINUTES),
+                                # The first block of each day is urgent-capacity, so the
+                                # triage flow has somewhere to send a same-week case.
+                                slot_type=(
+                                    SlotType.URGENT
+                                    if block_start == CLINIC_BLOCKS[0][0]
+                                    else SlotType.ROUTINE
+                                ),
+                                data_origin=DataOrigin.SYNTHETIC.value,
+                            )
+                        )
+                        created += 1
+                    cursor += timedelta(minutes=SLOT_MINUTES)
+
+        # Flushed per clinician so a constraint violation names the clinician it came from.
+        await session.flush()
+
+    return created
+
+
 async def seed(reset: bool) -> int:
     settings = get_settings()
 
@@ -226,9 +383,11 @@ async def seed(reset: bool) -> int:
             # trigger, and wiping the trail would defeat the point of having one.
             await session.execute(
                 text(
-                    "TRUNCATE identity.staff, clinical.patients, identity.refresh_tokens, "
-                    "identity.password_reset_tokens, identity.care_assignments, "
-                    "identity.breakglass_grants RESTART IDENTITY CASCADE"
+                    "TRUNCATE operational.appointments, operational.slot_holds, "
+                    "operational.appointment_slots, identity.staff, clinical.patients, "
+                    "identity.refresh_tokens, identity.password_reset_tokens, "
+                    "identity.care_assignments, identity.breakglass_grants "
+                    "RESTART IDENTITY CASCADE"
                 )
             )
             await session.execute(
@@ -298,6 +457,9 @@ async def seed(reset: bool) -> int:
         # Flushed above; staff rows must exist before assignments can reference them.
         await session.flush()
         await seed_queue_patients(session, department)
+        await session.flush()
+        await seed_extra_clinicians(session)
+        slots_created = await seed_slots(session)
         await session.commit()
 
     print("\nDemo accounts ready. All synthetic - no real person is described.\n")
@@ -306,6 +468,7 @@ async def seed(reset: bool) -> int:
     for (email, status), spec in zip(created, DEMO_ACCOUNTS, strict=True):
         print(f"  {email:<26} {spec.role.value:<9} {status}")
     print(f"\n  Password for all accounts: {settings.demo_password}")
+    print(f"  Appointment slots created: {slots_created}")
     print("\n  Sign in at http://localhost:3000/login\n")
     return 0
 
