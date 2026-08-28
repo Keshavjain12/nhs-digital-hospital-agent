@@ -23,6 +23,25 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             </Button>
           </div>
         </div>
+        <nav aria-label="Your account" className="border-t border-white/20">
+          <div className="mx-auto flex max-w-5xl gap-6 px-4">
+            <Link href="/dashboard" className="py-3 font-bold text-white no-underline hover:underline">
+              Overview
+            </Link>
+            <Link
+              href="/symptom-check"
+              className="py-3 font-bold text-white no-underline hover:underline"
+            >
+              Symptom check
+            </Link>
+            <Link
+              href="/appointments"
+              className="py-3 font-bold text-white no-underline hover:underline"
+            >
+              Appointments
+            </Link>
+          </div>
+        </nav>
       </header>
 
       <main id="main-content" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">

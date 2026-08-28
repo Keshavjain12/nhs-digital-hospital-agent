@@ -1,6 +1,8 @@
 export { Alert, ErrorSummary } from "./Alert";
 export { Button } from "./Button";
+export { ButtonLink } from "./ButtonLink";
 export { Card } from "./Card";
+export { Dialog } from "./Dialog";
 export { Select, TextInput } from "./Field";
 export { NonClinicalBanner } from "./NonClinicalBanner";
 export { SkipLink } from "./SkipLink";
