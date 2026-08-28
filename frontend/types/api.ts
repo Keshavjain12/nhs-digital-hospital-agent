@@ -61,6 +61,9 @@ export type OverviewResponse = Schemas["OverviewResponse"];
 export type KpiCard = Schemas["KpiCard"];
 export type AuditEntry = Schemas["AuditEntry"];
 export type AuditListResponse = Schemas["AuditListResponse"];
+export type ModelCardSchema = Schemas["ModelCardSchema"];
+export type ModelMetric = Schemas["ModelMetric"];
+export type ModelListResponse = Schemas["ModelListResponse"];
 
 /**
  * Error codes the UI branches on.

@@ -35,9 +35,13 @@ from app.schemas.admin import (
     AuditListResponse,
     DepartmentSummary,
     KpiCard,
+    ModelCardSchema,
+    ModelListResponse,
+    ModelMetric,
     OverviewResponse,
 )
 from app.schemas.base import PageMeta, ResponseMeta
+from app.services.model_monitoring import ModelMonitoringService
 
 router = APIRouter(
     prefix="/admin",
@@ -244,6 +248,51 @@ async def audit_trail(
             total_items=int(total),
             total_pages=max(1, (int(total) + page_size - 1) // page_size),
         ),
+    )
+
+
+@router.get(
+    "/models",
+    response_model=ModelListResponse,
+    summary="Model behaviour and override rates",
+    responses=_ERRORS,
+)
+async def models(
+    principal: RequireAdmin,
+    session: TransactionalSession,
+    context: RequestCtx,
+    window_days: Annotated[int, Query(ge=1, le=365, alias="windowDays")] = 30,
+) -> ModelListResponse:
+    """What is running and how clinicians are responding to it.
+
+    Aggregates only - counts and rates, never the records behind them. An administrator
+    can see that clinicians are overriding a model, and in which direction, without
+    seeing whose care it concerned.
+    """
+    cards = await ModelMonitoringService(session).model_cards(window_days=window_days)
+
+    return ModelListResponse(
+        items=[
+            ModelCardSchema(
+                key=card.key,
+                name=card.name,
+                purpose=card.purpose,
+                owner=card.owner,
+                status=card.status,
+                version=card.version,
+                metrics=[
+                    ModelMetric(
+                        key=m.key, label=m.label, value=m.value, caption=m.caption, tone=m.tone
+                    )
+                    for m in card.metrics
+                ],
+                last_output_at=card.last_output_at,
+                caveats=card.caveats,
+            )
+            for card in cards
+        ],
+        window_days=window_days,
+        meta=ResponseMeta(request_id=context.request_id, data_origin="SYNTHETIC"),
     )
 
 
