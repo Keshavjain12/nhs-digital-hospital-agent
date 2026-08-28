@@ -486,6 +486,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Model behaviour and override rates
+         * @description What is running and how clinicians are responding to it.
+         *
+         *     Aggregates only - counts and rates, never the records behind them. An administrator
+         *     can see that clinicians are overriding a model, and in which direction, without
+         *     seeing whose care it concerned.
+         */
+        get: operations["models_api_v1_admin_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/roles": {
         parameters: {
             query?: never;
@@ -823,6 +847,52 @@ export interface components {
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /** ModelCardSchema */
+        ModelCardSchema: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Purpose */
+            purpose: string;
+            /** Owner */
+            owner: string;
+            /** Status */
+            status: string;
+            /** Version */
+            version: string | null;
+            /** Metrics */
+            metrics: components["schemas"]["ModelMetric"][];
+            /** Lastoutputat */
+            lastOutputAt: string | null;
+            /** Caveats */
+            caveats: string[];
+        };
+        /** ModelListResponse */
+        ModelListResponse: {
+            /** Items */
+            items: components["schemas"]["ModelCardSchema"][];
+            /** Windowdays */
+            windowDays: number;
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** ModelMetric */
+        ModelMetric: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Caption */
+            caption: string;
+            /**
+             * Tone
+             * @default neutral
+             * @enum {string}
+             */
+            tone: "neutral" | "attention";
         };
         /** OverviewResponse */
         OverviewResponse: {
@@ -2709,6 +2779,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditListResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    models_api_v1_admin_models_get: {
+        parameters: {
+            query?: {
+                windowDays?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelListResponse"];
                 };
             };
             /** @description Not signed in */
