@@ -358,3 +358,62 @@ async def test_a_clinician_decision_is_recorded_alongside_the_original(
 
     assert row[0] == "EMERGENCY"
     assert row[1] == "ROUTINE"
+
+
+# --- Unrecognised input ---------------------------------------------------------
+
+
+async def test_unrecognised_input_does_not_advance_the_intake(api: AsyncClient) -> None:
+    """Saying "Thank you" for something it did not understand claims an understanding the
+    system does not have, and marches on to a triage band derived from no symptom at all."""
+    token = await signed_in(api, "gibberish@example.test", "Gibberish")
+    session_id = await start(api, token)
+
+    response = await say(api, token, session_id, "asdfgh")
+
+    body = response.json()
+    assert "thank you" not in body["messages"][-1]["content"].lower()
+    assert "did not understand" in body["messages"][-1]["content"].lower()
+    # The intake has not started, so the stage must not have moved on.
+    assert body["session"]["stage"] == "AWAITING_SYMPTOMS"
+    assert body["triage"] is None
+
+
+async def test_a_recovered_conversation_continues_normally(api: AsyncClient) -> None:
+    """One unrecognised message must not poison the rest of the conversation."""
+    token = await signed_in(api, "recovered@example.test", "Recovered")
+    session_id = await start(api, token)
+
+    await say(api, token, session_id, "hi")
+    response = await say(api, token, session_id, "I have had an itchy rash on my arm")
+
+    body = response.json()
+    assert body["session"]["stage"] == "AWAITING_DURATION"
+    assert "how long" in body["messages"][-1]["content"].lower()
+
+
+async def test_repeated_unrecognised_input_reaches_a_person(api: AsyncClient) -> None:
+    """Asking the same question forever is a way of never reaching help."""
+    token = await signed_in(api, "stuck@example.test", "Stuck")
+    session_id = await start(api, token)
+
+    await say(api, token, session_id, "hi")
+    await say(api, token, session_id, "hello")
+    response = await say(api, token, session_id, "asdfgh")
+
+    body = response.json()
+    assert body["session"]["status"] == "ESCALATED"
+    assert body["session"]["escalationReason"] == "not_understood"
+    assert body["isClosed"] is True
+    # No band is invented from input nobody understood.
+    assert body["triage"] is None
+
+
+async def test_an_unrecognised_message_is_never_thanked(api: AsyncClient) -> None:
+    token = await signed_in(api, "nothanks@example.test", "NoThanks")
+    session_id = await start(api, token)
+
+    for filler in (".", "ok"):
+        response = await say(api, token, session_id, filler)
+        assistant = [m for m in response.json()["messages"] if m["role"] == "ASSISTANT"]
+        assert "thank you" not in assistant[-1]["content"].lower()
