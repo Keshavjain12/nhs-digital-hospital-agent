@@ -32,6 +32,15 @@ export type PatientSummary = Schemas["PatientSummary"];
 export type PatientDetailResponse = Schemas["PatientDetailResponse"];
 export type BreakglassResponse = Schemas["BreakglassResponse"];
 
+// --- Booking ----------------------------------------------------------------
+export type SlotItem = Schemas["SlotItem"];
+export type SlotListResponse = Schemas["SlotListResponse"];
+export type HoldResponse = Schemas["HoldResponse"];
+export type AppointmentItem = Schemas["AppointmentItem"];
+export type AppointmentListResponse = Schemas["AppointmentListResponse"];
+export type AppointmentDetailResponse = Schemas["AppointmentDetailResponse"];
+export type BookingCreatedResponse = Schemas["BookingCreatedResponse"];
+
 // --- Administration ---------------------------------------------------------
 export type OverviewResponse = Schemas["OverviewResponse"];
 export type KpiCard = Schemas["KpiCard"];

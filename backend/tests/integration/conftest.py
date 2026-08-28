@@ -101,7 +101,17 @@ async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
     engine = create_async_engine(database_url, poolclass=None)
     connection = await engine.connect()
     transaction = await connection.begin()
-    factory = async_sessionmaker(bind=connection, expire_on_commit=False)
+    factory = async_sessionmaker(
+        bind=connection,
+        expire_on_commit=False,
+        # Each commit/rollback inside the application acts on a SAVEPOINT rather than the
+        # outer transaction. Without this, a request that legitimately rolls back - a 404
+        # on someone else's record, a booking conflict - unwinds the test's own setup with
+        # it, and the next assertion fails for reasons that have nothing to do with the
+        # behaviour under test. In production every request has its own session, so a
+        # rollback is already isolated; this makes the harness match.
+        join_transaction_mode="create_savepoint",
+    )
     session = factory()
 
     try:

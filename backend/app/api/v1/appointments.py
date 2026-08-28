@@ -256,6 +256,10 @@ async def cancel_appointment(
 @router.post(
     "/appointments/{appointment_id}/reschedule",
     response_model=BookingCreatedResponse,
+    # 201, matching the booking endpoint: rescheduling genuinely creates a new appointment
+    # with its own reference and cancels the old one. Returning 200 would suggest the same
+    # resource was edited in place, which is not what the audit trail records.
+    status_code=status.HTTP_201_CREATED,
     summary="Move an appointment to a different time",
     responses=_ERRORS,
 )
