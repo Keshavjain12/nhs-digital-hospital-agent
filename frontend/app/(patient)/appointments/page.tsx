@@ -55,6 +55,7 @@ function AppointmentsList() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const bookedReference = params.get("booked");
+  const rescheduledReference = params.get("rescheduled");
 
   const appointments = useQuery({
     queryKey: ["appointments", includePast],
@@ -91,6 +92,14 @@ function AppointmentsList() {
       {bookedReference && (
         <Alert tone="success" title={t("appointments.booked.title")}>
           {t("appointments.booked.body", { reference: bookedReference })}
+        </Alert>
+      )}
+
+      {/* A reschedule issues a new reference and cancels the old time. Saying so plainly
+          stops the patient wondering whether they now hold two appointments. */}
+      {rescheduledReference && (
+        <Alert tone="success" title={t("appointments.rescheduled.title")}>
+          {t("appointments.rescheduled.body", { reference: rescheduledReference })}
         </Alert>
       )}
 

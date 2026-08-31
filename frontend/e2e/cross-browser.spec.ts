@@ -167,3 +167,48 @@ describeSignedIn("doctor", "clinical journeys", (getPage) => {
     expect(errors, `uncaught page errors:\n${errors.join("\n")}`).toHaveLength(0);
   });
 });
+
+// --- Rescheduling -------------------------------------------------------------------
+
+describeSignedIn("patient", "rescheduling", (getPage) => {
+  test("a patient can move an appointment to a different time", async () => {
+    // The reschedule API was built and tested in Sprint 2, but nothing read the
+    // ?reschedule= parameter, so the "Change this appointment" link led to an ordinary
+    // booking page that would have created a *second* appointment rather than moving the
+    // first. This drives the whole path a patient takes.
+    test.setTimeout(90_000);
+
+    const page = getPage();
+    await page.goto("/appointments");
+
+    const change = page.getByRole("link", { name: /change this appointment/i }).first();
+    await expect(change).toBeVisible({ timeout: 45_000 });
+    await change.click();
+
+    // Framed as a change, not a new booking, and naming the appointment being moved.
+    await expect(
+      page.getByRole("heading", { level: 1, name: /change your appointment/i }),
+    ).toBeVisible();
+    await expect(page.getByText(/you are moving your appointment on/i)).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // Deliberately the *last* offered time, not the first. This test moves the demo
+    // patient's real appointment, so picking the earliest slot would park it a few minutes
+    // in the future and it would age into the past before the next run - leaving the
+    // appointments screen empty and this test with nothing to reschedule. Slots are held
+    // server-side for five minutes, so the confirm panel appears only once the hold
+    // succeeds.
+    const times = page.getByRole("button", { pressed: false }).filter({ hasText: /^\d{2}:\d{2}/ });
+    await times.last().click();
+
+    const confirm = page.getByRole("button", { name: /confirm the new time/i });
+    await expect(confirm).toBeVisible({ timeout: 30_000 });
+    await confirm.click();
+
+    // The banner is driven by what the server says it did, so this also asserts the
+    // backend treated it as a reschedule rather than a fresh booking.
+    await expect(page.getByText(/appointment changed/i)).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/the time you had before has been cancelled/i)).toBeVisible();
+  });
+});
