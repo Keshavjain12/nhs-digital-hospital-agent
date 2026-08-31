@@ -1,0 +1,104 @@
+# Production-shaped deployment.
+#
+# "Production-shaped", not production-ready. This runs the application the way a deployment
+# would - built images rather than mounted source, no reload, migrations applied before the
+# API starts, the database not reachable from outside - but the things a real NHS deployment
+# needs are listed in docs/deployment.md §6 and most of them are absent. Read that before
+# putting this anywhere.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Every secret comes from the environment. There are no defaults for any of them: a missing
+# value stops the stack rather than starting it with something predictable.
+
+name: nhs-hospital-agent-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
+    # No ports block. The database is reachable only from the compose network - nothing
+    # outside needs it, and publishing it is how a development convenience becomes an
+    # exposed database.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # Migrations run as their own one-shot service rather than from the API's entrypoint.
+  # Two API replicas racing `alembic upgrade head` at start-up is a real way to corrupt a
+  # schema, and folding migrations into the app makes that the default behaviour.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      ENVIRONMENT: production
+    depends_on:
+      db:
+        condition: service_healthy
+    command: alembic upgrade head
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    environment:
+      ENVIRONMENT: production
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      # The browser never calls the API directly - the web service proxies it on its own
+      # origin - so no cross-origin request is expected and the allow-list stays empty.
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # No source volume and no --reload: the image is the artefact, and a container whose
+    # behaviour depends on the host filesystem is not reproducible.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+      args:
+        # Build-time, because Next writes rewrites into the routes manifest at build.
+        API_ORIGIN: http://api:8000
+    # The only service published to the host. Everything else talks over the internal
+    # network, and the API is reached through this one's /api/v1 proxy.
+    ports:
+      - "${WEB_HOST_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

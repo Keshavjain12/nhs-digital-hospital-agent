@@ -74,6 +74,7 @@ Every design decision in `docs/` traces back to an entry here. Classification pe
 | # | Defect | Impact | Status |
 |---|---|---|---|
 | **D-WEBKIT-SESSION** | In WebKit, the rotated refresh cookie stops being stored after the second page load. The third load replays a spent token, the server correctly reads that as reuse, and `revoke_all_for_user` ends **every** session for that user. Measured 2026-08-31; see `docs/testing/cross-browser.md` §3. | A Safari user is signed out on the third page load, on every device. Safari is a large share of UK mobile browsing and this is a patient-facing service. | **Open, cause unknown.** The cross-origin-cookie hypothesis was tested and disproved: the API is now proxied under the app's own origin and WebKit still fails, one load earlier. Unconfirmed on real Safari — Playwright's WebKit on Windows is not Safari, and that remains the most likely way this turns out to be narrower than it looks. |
+| **D-RATE-LIMIT-WORKERS** | The login rate limiter is in-process. The production stack runs 4 uvicorn workers, each keeping its own counter, so the effective limit is roughly four times the configured one and it resets on every deploy. | A brute-force allowance four times larger than intended, and no limit that survives a restart. | **Open.** Needs shared storage (Redis, or a database table) for the counter. Recorded rather than quietly tolerated because the configured number is currently not the number that applies. |
 
 ---
 

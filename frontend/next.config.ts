@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   // would be a second, drifting source of truth.
   agentRules: false,
 
+  // Emits a self-contained server bundle with only the dependencies actually reached, so
+  // the production image does not have to carry node_modules.
+  output: "standalone",
+
   /**
    * Serve the API under this app's own origin.
    *
@@ -28,9 +32,10 @@ const nextConfig: NextConfig = {
   },
 
   // Security headers for the frontend. The API sets its own; these cover the HTML the
-  // browser loads. A CSP is not added here yet: Next's dev overlay and its inline
-  // bootstrap need nonce plumbing to work, and a CSP that has to be disabled in
-  // development is one nobody trusts in production. Tracked for Sprint 4 hardening.
+  // browser loads.
+  //
+  // The CSP is *not* here: it needs a per-request nonce, and headers() is static. It lives
+  // in middleware.ts instead. These are the headers that do not vary per request.
   async headers() {
     return [
       {
