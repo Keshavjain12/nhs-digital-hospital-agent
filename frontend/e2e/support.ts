@@ -1,6 +1,9 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 
+/** The API, which is a different origin from the app under test. */
+export const API_BASE = process.env.E2E_API_URL ?? "http://localhost:8000/api/v1";
+
 /** Demo credentials. Synthetic accounts on a synthetic dataset; see ASSUMPTIONS.md. */
 export const DEMO_PASSWORD = process.env.E2E_PASSWORD ?? "demo-hospital-2026";
 
