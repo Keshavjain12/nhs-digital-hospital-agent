@@ -18,7 +18,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <Link href="/dashboard" className="text-xl font-bold text-white no-underline hover:underline">
             {t("common.serviceName")}
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             {user && (
               <span className="text-white">
                 {t("common.signedInAs", { name: user.displayName })}
@@ -31,7 +31,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           </div>
         </div>
         <nav aria-label="Your account" className="border-t border-white/20">
-          <div className="mx-auto flex max-w-5xl gap-6 px-4">
+          <div className="mx-auto flex max-w-5xl flex-wrap gap-x-6 px-4">
             <Link href="/dashboard" className="py-3 font-bold text-white no-underline hover:underline">
               {t("nav.overview")}
             </Link>
