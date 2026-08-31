@@ -308,14 +308,16 @@ async def seed_demo_appointment(session: AsyncSession) -> str | None:
     if existing is not None:
         return existing
 
-    # The earliest free slot, so the demo shows something close at hand. Taken slots are
-    # excluded by the same rule the booking service uses, so this cannot collide with the
-    # partial unique index that enforces one active appointment per slot.
+    # At least two days out. The first attempt at this took the earliest free slot, which
+    # was forty minutes away - the demo appointment aged into the past within the hour and
+    # the appointments screen went empty again. Taken slots are excluded by the same rule
+    # the booking service uses, so this cannot collide with the partial unique index that
+    # enforces one active appointment per slot.
     slot = (
         await session.execute(
             select(AppointmentSlot)
             .where(
-                AppointmentSlot.starts_at > datetime.now(UTC),
+                AppointmentSlot.starts_at > datetime.now(UTC) + timedelta(days=2),
                 AppointmentSlot.id.not_in(
                     select(Appointment.slot_id).where(
                         Appointment.status.in_(

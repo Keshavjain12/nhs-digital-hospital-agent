@@ -120,6 +120,9 @@ export const messages = {
   "appointments.booked.title": "Appointment booked",
   "appointments.booked.body":
     "Your reference is {reference}. We have sent a confirmation to your email address.",
+  "appointments.rescheduled.title": "Appointment changed",
+  "appointments.rescheduled.body":
+    "Your new reference is {reference}. The time you had before has been cancelled.",
   "appointments.status.BOOKED": "Booked",
   "appointments.status.CANCELLED": "Cancelled",
   "appointments.status.DID_NOT_ATTEND": "Not attended",
@@ -152,6 +155,21 @@ export const messages = {
   "booking.confirm.booking": "Booking your appointment",
   "booking.confirm.chooseAnother": "Choose a different time",
   "booking.conflict.title": "Please choose another time",
+
+  // Rescheduling reuses the whole slot picker; only the framing changes. The wording is
+  // explicit that the existing appointment is still booked, because a patient who thinks
+  // they have already lost it may give up part-way and end up with nothing.
+  "booking.reschedule.title": "Change your appointment",
+  "booking.reschedule.intro":
+    "Choose a new time. Your current appointment stays booked until you confirm the change.",
+  // A distinct heading from the page title. Repeating the h1 inside the alert gave a
+  // screen-reader user the same words twice with no new information.
+  "booking.reschedule.movingTitle": "Appointment being changed",
+  "booking.reschedule.moving": "You are moving your appointment on {when}.",
+  "booking.reschedule.action": "Confirm the new time",
+  "booking.reschedule.working": "Moving your appointment",
+  "booking.reschedule.notFound":
+    "We could not find that appointment. It may already have been cancelled or changed.",
 
   // --- Authentication --------------------------------------------------------------------
   "auth.signIn.title": "Sign in",
