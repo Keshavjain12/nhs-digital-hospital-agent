@@ -28,6 +28,7 @@ Every design decision in `docs/` traces back to an entry here. Classification pe
 | C11 | Multi-language support is required for patient-facing screens | Task Plan, Full Stack S3 |
 | C12 | Some features will realistically remain prototypes within 8 weeks | Analysis Report §10 |
 | C13 | **Data source: Synthea + a purpose-built operational generator.** All generated data labelled `SYNTHETIC`. | Decision 2026-08-27, resolving B1 |
+| C15 | **Welsh (cy-GB) is the second locale.** Welsh language provision is a statutory duty for public bodies in Wales, which makes it the requirement most likely to be real rather than aspirational. The shipped Welsh is machine-drafted and marked DRAFT: it demonstrates the mechanism and must be replaced by professional translation, with a clinical check of every string carrying advice, before any real use. | Decision 2026-08-28, resolving D5 |
 | C14 | **Full Stack owns both frontend and backend** in this repository. The OpenAPI contract is kept as a clean seam so a Python-domain implementation could replace the backend without frontend changes. | Decision 2026-08-27, resolving B6 |
 
 ## INFERRED

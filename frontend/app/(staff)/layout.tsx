@@ -31,12 +31,18 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
         <nav aria-label="Clinical" className="border-t border-white/20">
-          <div className="mx-auto max-w-6xl px-4">
+          <div className="mx-auto flex max-w-6xl gap-6 px-4">
             <Link
               href="/staff/queue"
               className="inline-block py-3 font-bold text-white no-underline hover:underline"
             >
               Patients
+            </Link>
+            <Link
+              href="/staff/triage"
+              className="inline-block py-3 font-bold text-white no-underline hover:underline"
+            >
+              Triage review
             </Link>
           </div>
         </nav>

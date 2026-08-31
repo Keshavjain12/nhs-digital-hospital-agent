@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { api, ApiError } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import type { BookingCreatedResponse, HoldResponse, SlotItem, SlotListResponse } from "@/types/api";
 
 /** Group slots by calendar day so the picker reads like a diary, not a flat list. */
@@ -32,6 +33,7 @@ const dayFormat = new Intl.DateTimeFormat("en-GB", {
 export default function BookAppointmentPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const t = useT();
 
   const [department, setDepartment] = useState("");
   const [chosen, setChosen] = useState<SlotItem | null>(null);
@@ -118,24 +120,23 @@ export default function BookAppointmentPage() {
   return (
     <>
       <p className="mb-4">
-        <Link href="/appointments">Back to your appointments</Link>
+        <Link href="/appointments">{t("booking.backToAppointments")}</Link>
       </p>
 
-      <h1 className="mb-2 text-4xl font-bold">Book an appointment</h1>
+      <h1 className="mb-2 text-4xl font-bold">{t("booking.title")}</h1>
       <p className="mb-6 text-nhs-dark-grey">
-        Choose a time that suits you. We hold it for five minutes while you confirm.
+        {t("booking.intro")}
       </p>
 
       {conflict && (
-        <Alert tone="warning" title="Please choose another time" focusOnMount>
+        <Alert tone="warning" title={t("booking.conflict.title")} focusOnMount>
           {conflict}
         </Alert>
       )}
 
       <div className="mb-6">
         <label htmlFor="department" className="mb-1 block text-base font-bold">
-          Department
-          <span className="ml-1 font-normal text-nhs-dark-grey">(optional)</span>
+          {t("booking.department")}
         </label>
         <select
           id="department"
@@ -147,7 +148,7 @@ export default function BookAppointmentPage() {
           }}
           className="block min-h-[44px] w-full max-w-md border-2 border-nhs-black bg-white px-3 py-2 text-base"
         >
-          <option value="">All departments</option>
+          <option value="">{t("booking.allDepartments")}</option>
           {departments.map(([id, name]) => (
             <option key={id} value={id}>
               {name}
@@ -158,18 +159,18 @@ export default function BookAppointmentPage() {
 
       {slots.isPending && (
         <p role="status" aria-live="polite">
-          Loading available times…
+          {t("booking.loadingTimes")}
         </p>
       )}
 
       {slots.error && (
-        <Alert tone="error" title="Could not load available times" focusOnMount>
+        <Alert tone="error" title={t("common.somethingWentWrong")} focusOnMount>
           {slots.error.message}
         </Alert>
       )}
 
       {slots.data && days.length === 0 && (
-        <Alert tone="info" title="No appointments available">
+        <Alert tone="info" title={t("booking.none.title")}>
           There are no free times in this department at the moment. Try another department,
           or contact the hospital directly.
         </Alert>
@@ -200,7 +201,7 @@ export default function BookAppointmentPage() {
                   >
                     <span className="block">{timeFormat.format(new Date(slot.startsAt))}</span>
                     <span className="block text-xs font-normal">
-                      {selected ? "Held for you" : slot.departmentName}
+                      {selected ? t("booking.held") : slot.departmentName}
                     </span>
                   </button>
                 </li>
@@ -211,41 +212,42 @@ export default function BookAppointmentPage() {
       ))}
 
       {chosen && holdExpiry && (
-        <Card title="Confirm your appointment" className="sticky bottom-4 border-2 border-nhs-black">
+        <Card
+          title={t("booking.confirm.title")}
+          className="sticky bottom-4 border-2 border-nhs-black"
+        >
           <dl className="mb-4 grid gap-3 sm:grid-cols-3">
             <div>
-              <dt className="font-bold">When</dt>
+              <dt className="font-bold">{t("booking.confirm.when")}</dt>
               <dd>
                 {dayFormat.format(new Date(chosen.startsAt))},{" "}
                 {timeFormat.format(new Date(chosen.startsAt))}
               </dd>
             </div>
             <div>
-              <dt className="font-bold">Department</dt>
+              <dt className="font-bold">{t("booking.confirm.department")}</dt>
               <dd>{chosen.departmentName}</dd>
             </div>
             <div>
-              <dt className="font-bold">Clinician</dt>
-              <dd>{chosen.clinicianName ?? "To be confirmed"}</dd>
+              <dt className="font-bold">{t("booking.confirm.clinician")}</dt>
+              <dd>{chosen.clinicianName ?? t("booking.confirm.toBeConfirmed")}</dd>
             </div>
           </dl>
 
           <p className="mb-4" role="status" aria-live="polite">
-            We are holding this time for{" "}
-            <strong>
-              {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")}
-            </strong>
-            . If someone books it first we will tell you and nothing will be booked.
+            {t("booking.confirm.holding", {
+              countdown: `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`,
+            })}
           </p>
 
           <div className="flex flex-wrap gap-3">
             <Button
               size="lg"
               loading={book.isPending}
-              loadingText="Booking your appointment"
+              loadingText={t("booking.confirm.booking")}
               onClick={() => book.mutate(chosen)}
             >
-              Confirm this appointment
+              {t("booking.confirm.action")}
             </Button>
             <Button
               variant="secondary"
@@ -255,7 +257,7 @@ export default function BookAppointmentPage() {
                 setHoldExpiry(null);
               }}
             >
-              Choose a different time
+              {t("booking.confirm.chooseAnother")}
             </Button>
           </div>
         </Card>

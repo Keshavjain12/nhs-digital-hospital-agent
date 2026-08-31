@@ -235,12 +235,14 @@ class AuthService:
         patient_id: uuid.UUID | None = None
         staff_id: uuid.UUID | None = None
         display_name = user.email
+        preferred_language: str | None = None
 
         if user.role is UserRole.PATIENT:
             patient = await self.patients.get_by_user_id(user.id)
             if patient:
                 patient_id = patient.id
                 display_name = patient.display_name
+                preferred_language = patient.preferred_language
         else:
             staff = await self.staff.get_by_user_id(user.id)
             if staff:
@@ -254,6 +256,7 @@ class AuthService:
             display_name=display_name,
             patient_id=patient_id,
             staff_id=staff_id,
+            preferred_language=preferred_language,
         )
 
     async def _issue_session(

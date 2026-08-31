@@ -36,6 +36,34 @@ class OverviewResponse(CamelModel):
     meta: ResponseMeta
 
 
+class ModelMetric(CamelModel):
+    key: str
+    label: str
+    value: str
+    caption: str
+    tone: Literal["neutral", "attention"] = "neutral"
+
+
+class ModelCardSchema(CamelModel):
+    key: str
+    name: str
+    purpose: str
+    owner: str
+    status: str
+    version: str | None
+    #: Empty for a model that does not exist. The UI renders that as "no data", never as
+    #: zeroes - a 0% drift reading for a model nobody built reads as a healthy model.
+    metrics: list[ModelMetric]
+    last_output_at: datetime | None
+    caveats: list[str]
+
+
+class ModelListResponse(CamelModel):
+    items: list[ModelCardSchema]
+    window_days: int
+    meta: ResponseMeta
+
+
 class AuditEntry(CamelModel):
     id: int
     action: str

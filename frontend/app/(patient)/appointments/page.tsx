@@ -7,6 +7,7 @@ import { Suspense, useState } from "react";
 
 import { Alert, Badge, Button, ButtonLink, Card, Dialog } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { useT, type MessageKey } from "@/lib/i18n";
 import type { AppointmentItem, AppointmentListResponse } from "@/types/api";
 
 const when = new Intl.DateTimeFormat("en-GB", {
@@ -18,28 +19,26 @@ const when = new Intl.DateTimeFormat("en-GB", {
 });
 
 function StatusBadge({ status }: { status: string }) {
+  const t = useT();
+
   // Icon and word as well as colour, so status is never carried by colour alone.
-  if (status === "BOOKED") {
+  const known: Record<string, { tone: "success" | "neutral" | "attention"; icon: string }> = {
+    BOOKED: { tone: "success", icon: "✓" },
+    CANCELLED: { tone: "neutral", icon: "○" },
+    DID_NOT_ATTEND: { tone: "attention", icon: "!" },
+  };
+
+  const match = known[status];
+  if (match) {
     return (
-      <Badge tone="success" icon="✓">
-        Booked
+      <Badge tone={match.tone} icon={match.icon}>
+        {t(`appointments.status.${status}` as MessageKey)}
       </Badge>
     );
   }
-  if (status === "CANCELLED") {
-    return (
-      <Badge tone="neutral" icon="○">
-        Cancelled
-      </Badge>
-    );
-  }
-  if (status === "DID_NOT_ATTEND") {
-    return (
-      <Badge tone="attention" icon="!">
-        Not attended
-      </Badge>
-    );
-  }
+
+  // An in-progress status the catalogue does not name yet. Shown readably rather than
+  // as a raw enum, and never as a blank.
   return (
     <Badge tone="info" icon="●">
       {status.replace(/_/g, " ").toLowerCase()}
@@ -50,6 +49,7 @@ function StatusBadge({ status }: { status: string }) {
 function AppointmentsList() {
   const params = useSearchParams();
   const queryClient = useQueryClient();
+  const t = useT();
   const [includePast, setIncludePast] = useState(false);
   const [cancelling, setCancelling] = useState<AppointmentItem | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -80,23 +80,22 @@ function AppointmentsList() {
     <>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="mb-2 text-4xl font-bold">Your appointments</h1>
-          <p className="text-nhs-dark-grey">Book, change or cancel an appointment.</p>
+          <h1 className="mb-2 text-4xl font-bold">{t("appointments.title")}</h1>
+          <p className="text-nhs-dark-grey">{t("appointments.intro")}</p>
         </div>
         <ButtonLink href="/appointments/book" size="lg">
-          Book an appointment
+          {t("appointments.book")}
         </ButtonLink>
       </div>
 
       {bookedReference && (
-        <Alert tone="success" title="Appointment booked">
-          Your reference is <strong>{bookedReference}</strong>. We have sent a confirmation
-          to your email address.
+        <Alert tone="success" title={t("appointments.booked.title")}>
+          {t("appointments.booked.body", { reference: bookedReference })}
         </Alert>
       )}
 
       {actionError && (
-        <Alert tone="error" title="Something went wrong" focusOnMount>
+        <Alert tone="error" title={t("common.somethingWentWrong")} focusOnMount>
           {actionError}
         </Alert>
       )}
@@ -109,31 +108,29 @@ function AppointmentsList() {
             onChange={(event) => setIncludePast(event.target.checked)}
             className="size-6 border-2 border-nhs-black"
           />
-          Include past and cancelled appointments
+          {t("appointments.includePast")}
         </label>
       </div>
 
       {appointments.isPending && (
         <p role="status" aria-live="polite">
-          Loading your appointments…
+          {t("common.loading")}
         </p>
       )}
 
       {appointments.error && (
-        <Alert tone="error" title="Could not load your appointments" focusOnMount>
+        <Alert tone="error" title={t("common.somethingWentWrong")} focusOnMount>
           {appointments.error.message}
         </Alert>
       )}
 
       {appointments.data?.items.length === 0 && (
-        <Card title="No appointments">
+        <Card title={t("appointments.none.title")}>
           <p className="mb-4">
-            {includePast
-              ? "You have no appointments on record."
-              : "You have no upcoming appointments."}
+            {includePast ? t("appointments.none.any") : t("appointments.none.upcoming")}
           </p>
           <Link href="/appointments/book" className="font-bold">
-            Book an appointment
+            {t("appointments.book")}
           </Link>
         </Card>
       )}
@@ -156,12 +153,12 @@ function AppointmentsList() {
 
             <dl className="mb-4 grid gap-2 sm:grid-cols-2">
               <div>
-                <dt className="text-sm font-bold text-nhs-dark-grey">Reference</dt>
+                <dt className="text-sm font-bold text-nhs-dark-grey">{t("appointments.reference")}</dt>
                 <dd className="font-mono">{appointment.reference}</dd>
               </div>
               {appointment.reasonText && (
                 <div>
-                  <dt className="text-sm font-bold text-nhs-dark-grey">You told us</dt>
+                  <dt className="text-sm font-bold text-nhs-dark-grey">{t("appointments.youToldUs")}</dt>
                   <dd>{appointment.reasonText}</dd>
                 </div>
               )}
@@ -173,14 +170,14 @@ function AppointmentsList() {
                   href={`/appointments/book?reschedule=${appointment.id}`}
                   className="font-bold"
                 >
-                  Change this appointment
+                  {t("appointments.change")}
                 </Link>
                 <button
                   type="button"
                   onClick={() => setCancelling(appointment)}
                   className="font-bold text-nhs-red underline"
                 >
-                  Cancel this appointment
+                  {t("appointments.cancel")}
                 </button>
               </div>
             )}
@@ -191,14 +188,14 @@ function AppointmentsList() {
       <Dialog
         open={cancelling !== null}
         onClose={() => setCancelling(null)}
-        title="Cancel this appointment?"
+        title={t("appointments.cancelDialog.title")}
         tone="destructive"
         actions={
           <>
             {/* The safe action is first in the DOM, so it takes initial focus and a stray
                 Enter keeps the appointment rather than destroying it. */}
             <Button variant="secondary" onClick={() => setCancelling(null)}>
-              Keep this appointment
+              {t("appointments.cancelDialog.keep")}
             </Button>
             <Button
               variant="warning"
@@ -216,10 +213,7 @@ function AppointmentsList() {
             <p className="mb-3 font-bold">
               {when.format(new Date(cancelling.startsAt))} · {cancelling.departmentName}
             </p>
-            <p>
-              Cancelling frees this time for someone else. You will need to book again if
-              you still need to be seen.
-            </p>
+            <p>{t("appointments.cancelDialog.body")}</p>
           </>
         )}
       </Dialog>

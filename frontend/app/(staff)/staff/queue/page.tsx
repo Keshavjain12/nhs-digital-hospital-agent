@@ -5,7 +5,15 @@ import Link from "next/link";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-import { Alert, Badge, Button, Table, TextInput, type Column } from "@/components/ui";
+import {
+  Alert,
+  Badge,
+  Button,
+  Table,
+  TextInput,
+  TriageBadge,
+  type Column,
+} from "@/components/ui";
 import { api } from "@/lib/api";
 import type { PatientListItem, PatientListResponse } from "@/types/api";
 
@@ -59,6 +67,18 @@ export default function StaffQueuePage() {
           </span>
         ) : (
           <span className="text-nhs-dark-grey">Not recorded</span>
+        ),
+    },
+    {
+      key: "priority",
+      header: "Suggested urgency",
+      cell: (row) =>
+        row.latestTriage ? (
+          <TriageBadge triage={row.latestTriage} />
+        ) : (
+          // Null is a real state - most patients have not done a symptom check. Rendering
+          // a default band here would invent a clinical judgement nobody made.
+          <span className="text-sm text-nhs-dark-grey">None recorded</span>
         ),
     },
     {
