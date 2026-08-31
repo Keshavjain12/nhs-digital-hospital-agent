@@ -68,6 +68,13 @@ Every design decision in `docs/` traces back to an entry here. Classification pe
 | **B4** | No **bed occupancy or live waiting-time** series exists at the granularity the admin dashboard needs. | Admin KPI charts have no real backing data. | Derive from generated encounters plus a synthetic occupancy snapshot job, and label every admin chart as synthetic in the UI. |
 | **B5** | **DCB0129 / DCB0160 require a named Clinical Safety Officer.** No such person exists on this project. | A valid clinical safety case cannot be produced. | Outside engineering control. We build the technical foundations (audit trail, human-in-the-loop gates, provenance tracking) and document them as *supporting evidence for a future safety case* — never as compliance. |
 
+
+### Open defects
+
+| # | Defect | Impact | Status |
+|---|---|---|---|
+| **D-WEBKIT-SESSION** | In WebKit, the rotated refresh cookie stops being stored after the second page load. The third load replays a spent token, the server correctly reads that as reuse, and `revoke_all_for_user` ends **every** session for that user. Measured 2026-08-31; see `docs/testing/cross-browser.md` §3. | A Safari user is signed out on the third page load, on every device. Safari is a large share of UK mobile browsing and this is a patient-facing service. | **Open.** Likely fix is to serve the API under the app's own origin so no cross-origin cookie exists — a deployment-topology change, not a patch. Unconfirmed on real Safari; may not occur in a same-origin production setup, which is an expectation and not a measurement. |
+
 ---
 
 ## Explicit non-claims

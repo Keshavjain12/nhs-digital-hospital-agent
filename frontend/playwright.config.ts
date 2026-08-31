@@ -18,13 +18,25 @@ export default defineConfig({
   // Accessibility failures are not flaky, and retrying them would mask a real intermittent
   // problem rather than fix it.
   retries: 0,
-  fullyParallel: true,
-  // Three engines at full parallelism on one developer machine starved each other: a page
-  // that audits in 2.5s alone took 32s and tripped the timeout. The failure was contention,
-  // not a violation, and a suite that reports infrastructure noise as accessibility
-  // findings is worse than no suite.
-  workers: 4,
-  timeout: 60_000,
+  // Serial, for a reason worth stating rather than tuning away.
+  //
+  // Refresh tokens rotate, and replaying a rotated one revokes *every* session for that
+  // user - not just that chain (app/services/auth.py). A legitimate replay and a stolen
+  // token are indistinguishable, so ending all of them is the only safe response, and that
+  // is the right call.
+  //
+  // The demo dataset has one account per role. Running both spec files across three engines
+  // put six browser contexts on patient@example.test, all rotating their own tokens; one
+  // replay signed all the others out mid-test, and the failure surfaced as "the Start button
+  // is missing" on a page that had silently become the sign-in screen.
+  //
+  // The fix is not to weaken the control or to widen a timeout. It is to stop pretending one
+  // person is six, so files run one at a time.
+  fullyParallel: false,
+  workers: 1,
+  // Generous: a first authenticated round trip against a cold API is slow, and a tight bound
+  // reports contention as a defect.
+  timeout: 90_000,
   reporter: [["list"]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
