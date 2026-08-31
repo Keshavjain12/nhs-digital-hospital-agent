@@ -18,6 +18,22 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/**
+ * Rendered per request rather than prerendered, so the CSP nonce can be real.
+ *
+ * A nonce is by definition per response, and a statically prerendered page is one response
+ * reused for everyone - so Next cannot stamp a nonce into it, and every script it emits is
+ * refused by a `strict-dynamic` policy. The first production build did exactly that: the
+ * HTML arrived, every chunk was blocked, and the app sat on "Checking your sign-in
+ * details…" forever, with no server-side error to show for it.
+ *
+ * The alternative was `script-src 'unsafe-inline'`, which is the thing a CSP mostly exists
+ * to prevent. Static prerendering buys very little here anyway - every page is client
+ * rendered and takes its data from the API at request time, so what is being cached is an
+ * empty shell.
+ */
+export const dynamic = "force-dynamic";
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,

@@ -2,14 +2,20 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { Alert, Button, Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { api, ApiError } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import type { BookingCreatedResponse, HoldResponse, SlotItem, SlotListResponse } from "@/types/api";
+import type {
+  AppointmentDetailResponse,
+  BookingCreatedResponse,
+  HoldResponse,
+  SlotItem,
+  SlotListResponse,
+} from "@/types/api";
 
 /** Group slots by calendar day so the picker reads like a diary, not a flat list. */
 function byDay(slots: readonly SlotItem[]): Array<[string, SlotItem[]]> {
@@ -30,8 +36,14 @@ const dayFormat = new Intl.DateTimeFormat("en-GB", {
   month: "long",
 });
 
-export default function BookAppointmentPage() {
+function BookAppointmentForm() {
   const router = useRouter();
+  const params = useSearchParams();
+
+  // Rescheduling is the same picker with different framing and a different endpoint, not a
+  // second screen. Keeping one screen means the slot-holding, countdown and conflict
+  // handling cannot drift apart between the two paths.
+  const rescheduleId = params.get("reschedule");
   const queryClient = useQueryClient();
   const t = useT();
 
@@ -40,6 +52,15 @@ export default function BookAppointmentPage() {
   const [holdExpiry, setHoldExpiry] = useState<Date | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [conflict, setConflict] = useState<string | null>(null);
+
+  // Fetched so the page can name the appointment being moved. Without it the patient is
+  // asked to pick a new time with no reminder of what they are changing.
+  const moving = useQuery({
+    queryKey: ["appointment", rescheduleId],
+    queryFn: () => api.get<AppointmentDetailResponse>(`/appointments/${rescheduleId}`),
+    enabled: Boolean(rescheduleId),
+    retry: false,
+  });
 
   const slots = useQuery({
     queryKey: ["slots", department],
@@ -71,10 +92,17 @@ export default function BookAppointmentPage() {
 
   const book = useMutation({
     mutationFn: (slot: SlotItem) =>
-      api.post<BookingCreatedResponse>("/appointments", { slotId: slot.id }),
+      rescheduleId
+        ? api.post<BookingCreatedResponse>(`/appointments/${rescheduleId}/reschedule`, {
+            newSlotId: slot.id,
+          })
+        : api.post<BookingCreatedResponse>("/appointments", { slotId: slot.id }),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      router.replace(`/appointments?booked=${result.appointment.reference}`);
+      // The banner is chosen from what the server says it did, not from what this page
+      // asked for. If the two ever disagree, the patient should be told the truth.
+      const outcome = result.kind === "rescheduled" ? "rescheduled" : "booked";
+      router.replace(`/appointments?${outcome}=${result.appointment.reference}`);
     },
     onError: (error) => {
       setChosen(null);
@@ -123,10 +151,31 @@ export default function BookAppointmentPage() {
         <Link href="/appointments">{t("booking.backToAppointments")}</Link>
       </p>
 
-      <h1 className="mb-2 text-4xl font-bold">{t("booking.title")}</h1>
+      <h1 className="mb-2 text-4xl font-bold">
+        {t(rescheduleId ? "booking.reschedule.title" : "booking.title")}
+      </h1>
       <p className="mb-6 text-nhs-dark-grey">
-        {t("booking.intro")}
+        {t(rescheduleId ? "booking.reschedule.intro" : "booking.intro")}
       </p>
+
+      {/* Names the appointment being moved, so the patient can see they are changing the
+          one they meant. Rendered only once loaded - a half-written sentence with a
+          missing date would be worse than waiting. */}
+      {rescheduleId && moving.data && (
+        <Alert tone="info" title={t("booking.reschedule.movingTitle")}>
+          {t("booking.reschedule.moving", {
+            when: `${dayFormat.format(new Date(moving.data.appointment.startsAt))}, ${timeFormat.format(
+              new Date(moving.data.appointment.startsAt),
+            )}`,
+          })}
+        </Alert>
+      )}
+
+      {rescheduleId && moving.isError && (
+        <Alert tone="warning" title={t("booking.conflict.title")}>
+          {t("booking.reschedule.notFound")}
+        </Alert>
+      )}
 
       {conflict && (
         <Alert tone="warning" title={t("booking.conflict.title")} focusOnMount>
@@ -244,10 +293,12 @@ export default function BookAppointmentPage() {
             <Button
               size="lg"
               loading={book.isPending}
-              loadingText={t("booking.confirm.booking")}
+              loadingText={t(
+                rescheduleId ? "booking.reschedule.working" : "booking.confirm.booking",
+              )}
               onClick={() => book.mutate(chosen)}
             >
-              {t("booking.confirm.action")}
+              {t(rescheduleId ? "booking.reschedule.action" : "booking.confirm.action")}
             </Button>
             <Button
               variant="secondary"
@@ -263,5 +314,13 @@ export default function BookAppointmentPage() {
         </Card>
       )}
     </>
+  );
+}
+
+export default function BookAppointmentPage() {
+  return (
+    <Suspense fallback={<p>Loading…</p>}>
+      <BookAppointmentForm />
+    </Suspense>
   );
 }

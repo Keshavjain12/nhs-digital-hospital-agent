@@ -51,8 +51,8 @@ export default async function LoginPage({
           Password: <code>demo-hospital-2026</code>
         </p>
         <p className="mt-2 text-sm text-nhs-dark-grey">
-          These accounts describe no real person. Staff and admin views are still being
-          built and currently show the patient dashboard.
+          These accounts describe no real person, and the data behind them is synthetic.
+          Each one opens the view for its own role.
         </p>
       </details>
 
