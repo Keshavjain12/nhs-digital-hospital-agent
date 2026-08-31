@@ -97,9 +97,15 @@ describeSignedIn("patient", "patient journeys", (getPage) => {
     const page = getPage();
     await page.goto("/appointments");
 
-    // The seeded patient has bookings; references are APT-YYYY-NNNNNN. The bound is
-    // generous because WebKit is consistently the slowest of the three here and a tight one
-    // reports engine speed as a defect.
+    // Include past appointments before asserting. The seeded slots are generated relative
+    // to seed time, so a database seeded a while ago has no *upcoming* bookings at all and
+    // the page correctly says "No appointments" - which would fail this check for a reason
+    // that has nothing to do with the browser. What is being tested is that real
+    // appointment data reaches the page, so ask for all of it.
+    await page.getByRole("checkbox", { name: /include past and cancelled/i }).check();
+
+    // References are APT-YYYY-NNNNNN. The bound is generous because WebKit is consistently
+    // the slowest of the three and a tight one reports engine speed as a defect.
     await expect(page.getByText(/APT-\d{4}-\d+/).first()).toBeVisible({ timeout: 45_000 });
   });
 
