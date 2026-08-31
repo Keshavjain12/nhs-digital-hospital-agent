@@ -76,26 +76,41 @@ problem is that WebKit hands it a false positive.
 Confirmed by a second probe: signed out on load 3 under WebKit, still signed in after load 4
 under Chromium.
 
-### Why it probably happens
+### The cause is not what I first assumed
 
-The cookie is `HttpOnly; Max-Age=1209600; Path=/api/v1/auth; SameSite=lax`, set by the API
-on `localhost:8000` while the app runs on `localhost:3001`. Ports are not part of a cookie's
-identity, so this is same-*site*, but it is still cross-**origin**, and WebKit applies
-stricter rules than Chromium or Firefox to cookies written by a cross-origin XHR response.
+My first hypothesis was that the cookie being cross-origin was to blame: the API was
+addressed absolutely at `localhost:8000` while the app ran on `localhost:3001`, and WebKit
+applies stricter rules than Chromium or Firefox to cookies written by a cross-origin XHR
+response.
 
-**This is a hypothesis, not a proven cause.** What is proven is the observed behaviour above.
+**That hypothesis was tested and is wrong.** The API is now proxied under the app's own
+origin, so the cookie is first-party and no CORS is involved. WebKit still fails — in fact
+it stalls one load earlier:
+
+```
+                    login       load 1      load 2      load 3      load 4
+chromium (after)    fjZcSXjevv  zgHTmjAucv  RC66PqTE8L  SUypZNpDra  0YsxeM9sjv
+webkit   (after)    6v_cpNlUOS  lZK8pJzoYm  lZK8pJzoYm  lZK8pJzoYm  lZK8pJzoYm
+```
+
+So: WebKit stores the cookie when it is first created, accepts one update, and then stops
+accepting updates. Chromium accepts every one. The cause is something about how WebKit
+handles a repeated `Set-Cookie` for an existing cookie on a fetch response, and I have not
+identified it.
+
+The same-origin proxy was kept regardless — it removes a CORS preflight from every request
+and keeps the backend's address out of the browser, which are worth having on their own
+merits. It is simply not the fix for this.
 
 ### What has and has not been done
 
-- **Not fixed.** The likely correct fix is to stop the API being a separate origin — proxy
-  it under the app's own origin (`/api/*` → backend) so no cross-origin cookie exists. That
-  is probably the right production architecture regardless, and it is a change to
-  deployment topology rather than a patch, so it should be made deliberately rather than
-  folded into a testing task.
-- **Not confirmed on real Safari.** WebKit on Windows is not Safari on macOS or iOS.
-- **May not affect production.** If the API and app are served from one origin behind a
-  single domain — the usual arrangement — the cross-origin cookie disappears and with it,
-  probably, this defect. That is an expectation, not a measurement.
+- **Not fixed.** The one hypothesis I had was tested and disproved, above. I do not
+  currently know the cause.
+- **Not confirmed on real Safari.** WebKit on Windows is not Safari on macOS or iOS, and
+  that remains the most likely way this turns out to be narrower than it looks.
+- **Not explained by deployment topology.** The service is now same-origin and the defect
+  persists — one load earlier, in fact — so it cannot be put down to running the API on a
+  separate port in development.
 - **Two tests carry `test.fixme` for WebKit**, referencing this section. They are visible as
   skipped with a reason rather than deleted or quietly passed.
 
