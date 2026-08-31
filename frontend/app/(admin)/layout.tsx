@@ -27,7 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
         <nav aria-label="Operations" className="border-t border-white/20">
-          <div className="mx-auto flex max-w-6xl gap-6 px-4">
+          <div className="mx-auto flex max-w-6xl flex-wrap gap-x-6 px-4">
             <Link href="/admin/dashboard" className="py-3 font-bold text-white no-underline hover:underline">
               Dashboard
             </Link>

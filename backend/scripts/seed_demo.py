@@ -35,7 +35,7 @@ from app.models.base import DataOrigin, UserRole, UserStatus
 from app.models.clinical import Patient
 from app.models.identity import CareAssignment, Staff, User
 from app.models.operational import Department, Site
-from app.models.scheduling import AppointmentSlot, SlotType
+from app.models.scheduling import Appointment, AppointmentSlot, AppointmentStatus, SlotType
 from app.utils import nhs_number as nhs
 
 DEMO_DOMAIN = "example.test"
@@ -272,6 +272,88 @@ async def seed_extra_clinicians(session: AsyncSession) -> None:
     await session.flush()
 
 
+async def seed_demo_appointment(session: AsyncSession) -> str | None:
+    """Give the demo patient one upcoming appointment.
+
+    Without this a fresh demo opens on an empty appointments screen, so the cancel and
+    reschedule flows have nothing to act on and cannot be demonstrated at all. The browser
+    test covering the cancel dialog was silently reporting SKIP for exactly this reason - a
+    quiet loss of coverage that reads as a pass at a glance.
+
+    Idempotent on *upcoming* rather than on "has any appointment". That distinction is the
+    bug being fixed: slots are generated relative to seed time, so a database seeded weeks
+    ago has appointments that have all slipped into the past, and a check for mere existence
+    declares the job done while the demo shows nothing.
+    """
+    patient = (
+        await session.execute(
+            select(Patient).join(User).where(User.email == f"patient@{DEMO_DOMAIN}")
+        )
+    ).scalar_one_or_none()
+    if patient is None:
+        return None
+
+    existing = (
+        await session.execute(
+            select(Appointment.reference)
+            .join(AppointmentSlot, AppointmentSlot.id == Appointment.slot_id)
+            .where(
+                Appointment.patient_id == patient.id,
+                Appointment.status == AppointmentStatus.BOOKED,
+                AppointmentSlot.starts_at > datetime.now(UTC),
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    # At least two days out. The first attempt at this took the earliest free slot, which
+    # was forty minutes away - the demo appointment aged into the past within the hour and
+    # the appointments screen went empty again. Taken slots are excluded by the same rule
+    # the booking service uses, so this cannot collide with the partial unique index that
+    # enforces one active appointment per slot.
+    slot = (
+        await session.execute(
+            select(AppointmentSlot)
+            .where(
+                AppointmentSlot.starts_at > datetime.now(UTC) + timedelta(days=2),
+                AppointmentSlot.id.not_in(
+                    select(Appointment.slot_id).where(
+                        Appointment.status.in_(
+                            [
+                                AppointmentStatus.BOOKED,
+                                AppointmentStatus.CHECKED_IN,
+                                AppointmentStatus.IN_PROGRESS,
+                            ]
+                        )
+                    )
+                ),
+            )
+            .order_by(AppointmentSlot.starts_at)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if slot is None:
+        return None
+
+    booked_by = (
+        await session.execute(select(User).where(User.email == f"patient@{DEMO_DOMAIN}"))
+    ).scalar_one()
+
+    appointment = Appointment(
+        patient_id=patient.id,
+        slot_id=slot.id,
+        department_id=slot.department_id,
+        staff_id=slot.staff_id,
+        booked_by_user_id=booked_by.id,
+        reason_text="Routine review (demonstration data)",
+    )
+    session.add(appointment)
+    await session.flush()
+    return appointment.reference
+
+
 async def seed_slots(session: AsyncSession) -> int:
     """Generate a forward timetable of appointment slots.
 
@@ -460,6 +542,8 @@ async def seed(reset: bool) -> int:
         await session.flush()
         await seed_extra_clinicians(session)
         slots_created = await seed_slots(session)
+        await session.flush()
+        demo_reference = await seed_demo_appointment(session)
         await session.commit()
 
     print("\nDemo accounts ready. All synthetic - no real person is described.\n")
@@ -469,7 +553,10 @@ async def seed(reset: bool) -> int:
         print(f"  {email:<26} {spec.role.value:<9} {status}")
     print(f"\n  Password for all accounts: {settings.demo_password}")
     print(f"  Appointment slots created: {slots_created}")
-    print("\n  Sign in at http://localhost:3000/login\n")
+    if demo_reference:
+        print(f"  Upcoming appointment for the demo patient: {demo_reference}")
+    else:
+        print("  No upcoming appointment created (no free future slot).")
     return 0
 
 

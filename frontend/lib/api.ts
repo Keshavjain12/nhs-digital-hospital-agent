@@ -8,8 +8,20 @@
 
 import type { ApiErrorBody, ErrorCode } from "@/types/api";
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+/**
+ * Empty by default, which means "this origin".
+ *
+ * The API used to be addressed absolutely at http://localhost:8000, making every call
+ * cross-origin. That cost us a real defect: WebKit stopped storing the rotated refresh
+ * cookie after the second page load, replayed a spent token, and the server - correctly -
+ * read that as reuse and ended every session for the user. A Safari user was signed out on
+ * their third page load, on every device. See docs/testing/cross-browser.md §3.
+ *
+ * Requests now go to /api/v1 on the app's own origin and are proxied to the backend by the
+ * rewrite in next.config.ts, so the cookie is first-party and no CORS preflight is involved
+ * at all. Set NEXT_PUBLIC_API_BASE_URL only to deliberately talk to a different origin.
+ */
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 const API_V1 = `${API_BASE_URL}/api/v1`;
 
