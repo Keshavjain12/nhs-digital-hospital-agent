@@ -5,7 +5,7 @@ import Link from "next/link";
 import { use, useState } from "react";
 import type { FormEvent } from "react";
 
-import { Alert, Badge, Button, Card } from "@/components/ui";
+import { Alert, Badge, Button, Card, TriagePanel } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import type { BreakglassResponse, PatientDetailResponse } from "@/types/api";
 
@@ -180,6 +180,12 @@ export default function PatientRecordPage({ params }: { params: Promise<{ id: st
           <strong>{patient.preferredLanguage}</strong>. Arrange interpretation before the
           consultation.
         </Alert>
+      )}
+
+      {data.latestTriage && (
+        <div className="mb-6">
+          <TriagePanel triage={data.latestTriage} />
+        </div>
       )}
 
       <div className="grid gap-6 md:grid-cols-2">

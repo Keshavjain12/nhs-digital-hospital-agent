@@ -97,7 +97,7 @@ async def get_patient(
     one they have active emergency access for. Every read is written to the audit trail
     with the basis on which it was allowed.
     """
-    patient, access = await PatientService(session).get_for_actor(
+    patient, access, latest_triage = await PatientService(session).get_for_actor(
         patient_id,
         actor_user_id=principal.user_id,
         actor_role=principal.role,
@@ -105,7 +105,7 @@ async def get_patient(
         staff_id=principal.staff_id,
         context=context,
     )
-    return PatientDetailResponse(patient=patient, access=access)
+    return PatientDetailResponse(patient=patient, access=access, latest_triage=latest_triage)
 
 
 @router.post(

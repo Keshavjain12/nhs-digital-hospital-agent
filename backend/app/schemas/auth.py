@@ -71,6 +71,9 @@ class UserSummary(CamelModel):
     display_name: str
     patient_id: uuid.UUID | None = None
     staff_id: uuid.UUID | None = None
+    #: The patient's stored language preference, so the interface follows them between
+    #: devices rather than living in one browser. Null for staff, who work in English.
+    preferred_language: str | None = None
 
 
 class LoginResponse(CamelModel):

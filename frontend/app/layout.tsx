@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 
 import { NonClinicalBanner, SkipLink } from "@/components/ui";
 import { SessionProvider } from "@/features/auth/SessionProvider";
+import { LocalisedShell } from "@/features/i18n/LocalisedShell";
 import { QueryProvider } from "@/lib/query";
 
 import "./globals.css";
@@ -28,10 +29,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en-GB">
       <body className="flex min-h-screen flex-col bg-nhs-white">
-        <SkipLink />
-        <NonClinicalBanner />
         <QueryProvider>
-          <SessionProvider>{children}</SessionProvider>
+          <SessionProvider>
+            {/* The shell owns the locale, so the banner and skip link are translated too.
+                It sits inside SessionProvider because the patient's stored language
+                preference is part of their session. */}
+            <LocalisedShell>
+              <SkipLink />
+              <NonClinicalBanner />
+              {children}
+            </LocalisedShell>
+          </SessionProvider>
         </QueryProvider>
       </body>
     </html>

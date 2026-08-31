@@ -45,6 +45,12 @@ logger = get_logger(__name__)
 MAX_MESSAGE_LENGTH = 1000
 MAX_MESSAGES_PER_SESSION = 40
 
+#: How many times the patient may describe their symptoms without the engine recognising
+#: anything before a person is asked to look. Three attempts is enough to rule out a typo
+#: or a false start; beyond that, continuing to ask the same question is a way of never
+#: reaching help.
+MAX_UNRECOGNISED_ATTEMPTS = 3
+
 
 class AuditAction:
     CHAT_STARTED = "CHAT_STARTED"
@@ -62,6 +68,16 @@ OPENING = (
 )
 
 ASK_DURATION = "Thank you. How long has this been going on?"
+
+ASK_AGAIN = (
+    "Sorry, I did not understand that. Try describing it in a little more detail - "
+    "for example which part of your body is affected, and what it feels like."
+)
+
+CANNOT_UNDERSTAND = (
+    "I have not been able to understand what you have described, so I have passed this to "
+    "a member of staff. A person will be able to help."
+)
 
 ASK_SEVERITY = "And how much is it affecting what you can do today?"
 
@@ -217,7 +233,10 @@ class ChatService:
                 chat, assessment, actor_user_id, context, patient_id
             )
 
-        return await self._advance(chat, assessment, actor_user_id, context, patient_id)
+        patient_turns = sum(1 for m in history if m.role is ChatRole.PATIENT) + 1
+        return await self._advance(
+            chat, assessment, actor_user_id, context, patient_id, patient_turns
+        )
 
     # --- Branches -------------------------------------------------------------
 
@@ -256,10 +275,32 @@ class ChatService:
         actor_user_id: uuid.UUID,
         context: RequestContext,
         patient_id: uuid.UUID,
+        patient_turns: int,
     ) -> ChatTurn:
         stage = ChatStage(chat.stage)
 
         if stage is ChatStage.AWAITING_SYMPTOMS:
+            if not assessment.matched_rules:
+                # Nothing was recognised. Saying "Thank you" and moving on would claim an
+                # understanding the system does not have, and would march to a triage band
+                # derived from no symptom at all. Ask again instead.
+                if patient_turns >= MAX_UNRECOGNISED_ATTEMPTS:
+                    self._add_message(
+                        chat, ChatRole.ASSISTANT, CANNOT_UNDERSTAND, produced_by="script"
+                    )
+                    self._add_message(
+                        chat, ChatRole.SYSTEM, ESCALATION_NOTICE, produced_by="script"
+                    )
+                    await self._escalate(chat, "not_understood", actor_user_id, context)
+                    return ChatTurn(
+                        session=chat, messages=await self._messages(chat.id), triage=None
+                    )
+
+                self._add_message(chat, ChatRole.ASSISTANT, ASK_AGAIN, produced_by="script")
+                # Stage deliberately unchanged: the intake has not actually started.
+                await self._session.flush()
+                return ChatTurn(session=chat, messages=await self._messages(chat.id), triage=None)
+
             self._add_message(chat, ChatRole.ASSISTANT, ASK_DURATION, produced_by="script")
             chat.stage = ChatStage.AWAITING_DURATION.value
             triage = None

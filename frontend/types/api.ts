@@ -50,11 +50,20 @@ export type TriageResultItem = Schemas["TriageResultItem"];
 /** Triage bands, most urgent first. Mirrors app/services/triage.py. */
 export type TriageSeverity = "EMERGENCY" | "URGENT" | "SOON" | "ROUTINE" | "SELF_CARE";
 
+// --- Triage review ----------------------------------------------------------
+export type TriageSummary = Schemas["TriageSummary"];
+export type TriageQueueItemSchema = Schemas["TriageQueueItemSchema"];
+export type TriageQueueResponse = Schemas["TriageQueueResponse"];
+export type TriageReviewResponse = Schemas["TriageReviewResponse"];
+
 // --- Administration ---------------------------------------------------------
 export type OverviewResponse = Schemas["OverviewResponse"];
 export type KpiCard = Schemas["KpiCard"];
 export type AuditEntry = Schemas["AuditEntry"];
 export type AuditListResponse = Schemas["AuditListResponse"];
+export type ModelCardSchema = Schemas["ModelCardSchema"];
+export type ModelMetric = Schemas["ModelMetric"];
+export type ModelListResponse = Schemas["ModelListResponse"];
 
 /**
  * Error codes the UI branches on.

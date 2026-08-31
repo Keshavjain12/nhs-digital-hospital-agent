@@ -31,6 +31,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link href="/admin/dashboard" className="py-3 font-bold text-white no-underline hover:underline">
               Dashboard
             </Link>
+            <Link href="/admin/models" className="py-3 font-bold text-white no-underline hover:underline">
+              Models
+            </Link>
             <Link href="/admin/audit" className="py-3 font-bold text-white no-underline hover:underline">
               Audit trail
             </Link>
