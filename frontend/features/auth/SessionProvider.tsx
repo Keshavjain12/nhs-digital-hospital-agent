@@ -32,12 +32,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const refreshed = await api.post<{ accessToken: string }>(
-          "/auth/refresh",
-          undefined,
-          { retryOnUnauthorised: false },
-        );
-        setAccessToken(refreshed.accessToken);
+        // Through the shared, deduplicated path rather than posting to /auth/refresh
+        // directly. This effect runs on every page load, and two of them overlapping -
+        // a navigation starting before the previous one's rotated cookie came back -
+        // replays a spent token. The server reads that as reuse and ends every session
+        // the user has, on every device. Going through api.restoreSession() means only
+        // one exchange is ever in flight.
+        const restored = await api.restoreSession();
+        if (!restored) throw new Error("no session");
+
         const me = await api.get<UserSummary>("/auth/me");
         if (!cancelled) setUser(me);
       } catch {

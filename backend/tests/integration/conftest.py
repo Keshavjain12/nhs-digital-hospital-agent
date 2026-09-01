@@ -142,11 +142,20 @@ async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
 async def api(db_session: AsyncSession, database_url: str) -> AsyncIterator[AsyncClient]:
     """An HTTP client whose requests share the test's transaction."""
     os.environ["DATABASE_URL"] = database_url
+    # The suite uses the in-process limiter even where REDIS_URL is set in the environment.
+    # Tests should not depend on external infrastructure being up, and a shared Redis
+    # counter persists across cases: with one window covering the whole run, the first
+    # fifteen logins spend the allowance and everything after them fails with a 429 that
+    # has nothing to do with what the test was checking. The Redis path is verified
+    # against a live server instead - see docs/deployment.md.
+    os.environ["REDIS_URL"] = ""
     get_settings.cache_clear()
 
     from app.core.db import get_session
-    from app.core.ratelimit import get_rate_limiter
+    from app.core.ratelimit import InMemoryRateLimiter, get_rate_limiter, reset_rate_limiter
     from app.main import create_app
+
+    reset_rate_limiter()
 
     application = create_app()
 
@@ -157,9 +166,14 @@ async def api(db_session: AsyncSession, database_url: str) -> AsyncIterator[Asyn
 
     # Rate-limit state is process-global; clearing it stops one test's requests from
     # exhausting another's allowance and producing order-dependent failures.
+    #
+    # Asserted rather than duck-typed. This used to be `if hasattr(limiter, "_events")`,
+    # which silently did nothing once the limiter could be Redis-backed - the counters kept
+    # accumulating and a hundred tests failed with 429s that looked like unrelated
+    # breakage. A wrong limiter should fail loudly here, not quietly there.
     limiter = get_rate_limiter()
-    if hasattr(limiter, "_events"):
-        limiter._events.clear()
+    assert isinstance(limiter, InMemoryRateLimiter), "tests must not share a live limiter"
+    limiter._events.clear()
 
     transport = ASGITransport(app=application, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

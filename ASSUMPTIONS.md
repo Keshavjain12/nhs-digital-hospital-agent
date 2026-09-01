@@ -69,12 +69,12 @@ Every design decision in `docs/` traces back to an entry here. Classification pe
 | **B5** | **DCB0129 / DCB0160 require a named Clinical Safety Officer.** No such person exists on this project. | A valid clinical safety case cannot be produced. | Outside engineering control. We build the technical foundations (audit trail, human-in-the-loop gates, provenance tracking) and document them as *supporting evidence for a future safety case* — never as compliance. |
 
 
-### Open defects
+### Defects found and closed
 
-| # | Defect | Impact | Status |
-|---|---|---|---|
-| **D-WEBKIT-SESSION** | In WebKit, the rotated refresh cookie stops being stored after the second page load. The third load replays a spent token, the server correctly reads that as reuse, and `revoke_all_for_user` ends **every** session for that user. Measured 2026-08-31; see `docs/testing/cross-browser.md` §3. | A Safari user is signed out on the third page load, on every device. Safari is a large share of UK mobile browsing and this is a patient-facing service. | **Open, cause unknown.** The cross-origin-cookie hypothesis was tested and disproved: the API is now proxied under the app's own origin and WebKit still fails, one load earlier. Unconfirmed on real Safari — Playwright's WebKit on Windows is not Safari, and that remains the most likely way this turns out to be narrower than it looks. |
-| **D-RATE-LIMIT-WORKERS** | The login rate limiter is in-process. The production stack runs 4 uvicorn workers, each keeping its own counter, so the effective limit is roughly four times the configured one and it resets on every deploy. | A brute-force allowance four times larger than intended, and no limit that survives a restart. | **Open.** Needs shared storage (Redis, or a database table) for the counter. Recorded rather than quietly tolerated because the configured number is currently not the number that applies. |
+| # | Defect | Outcome |
+|---|---|---|
+| **D-REFRESH-RACE** (was D-WEBKIT-SESSION) | The session provider exchanged the refresh cookie on every page load without going through the deduplication in `lib/api.ts`. Two overlapping loads replayed a spent token, the server read that as theft, and **every session for that user on every device** was revoked. | **Closed 2 Sep 2026.** Client restores through the shared single-flight path; the server allows a ten-second window where a rotated token replayed while its replacement is live is refused without revoking anything, recorded as `TOKEN_REFRESH_RACE`. Theft outside that window still ends every session, and a test ages the rotation past it to prove that branch still runs. **Recorded first as a WebKit cookie-storage bug, which was wrong twice over** — see `docs/testing/cross-browser.md` §3. All three engines now pass 30/30 with nothing skipped. |
+| **D-RATE-LIMIT-WORKERS** | The rate limiter kept counters in process memory. The production stack runs 4 uvicorn workers, so the effective login limit was about four times the configured one and reset on every deploy. | **Closed 2 Sep 2026.** Counters moved to Redis with an atomic sliding window in Lua. Measured against the running production stack with 4 workers: exactly 15 attempts allowed, then 429. Production refuses to start without `REDIS_URL`, and the in-process limiter remains for development and the test suite. |
 
 ---
 

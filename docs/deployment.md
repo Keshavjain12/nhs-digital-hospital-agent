@@ -22,6 +22,7 @@ export POSTGRES_PASSWORD="$(python -c 'import secrets;print(secrets.token_urlsaf
 export POSTGRES_DB=hospital
 export JWT_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"
 export WEB_HOST_PORT=3000
+# REDIS_URL is set by the compose file. Production refuses to start without it - see §3.
 
 docker compose -f docker-compose.prod.yml up -d --build
 ```
@@ -41,6 +42,7 @@ internal network.
 | Service | What it does |
 | --- | --- |
 | `db` | PostgreSQL 16. **No published port** — nothing outside needs it, and publishing it is how a development convenience becomes an exposed database. |
+| `redis` | Rate-limit counters, shared across workers. No persistence and no volume: nothing here is worth keeping across a restart, and losing it resets a limit rather than losing data. |
 | `migrate` | Runs `alembic upgrade head` once and exits. `api` waits for it to complete successfully. |
 | `api` | FastAPI under uvicorn, 4 workers, no source mount, no reload. |
 | `web` | The Next.js standalone server. The only service published to the host. |
@@ -62,7 +64,26 @@ time and writes them into the routes manifest, so setting it only at runtime lea
 proxy pointing at the default and every API call fails in a way that looks like the backend
 being down.
 
-## 3. Content-Security-Policy
+## 3. Rate limiting is shared, and production insists on it
+
+Counters live in Redis, using an atomic sliding window implemented in Lua — a script rather
+than a pipeline, because a read and a write that interleave with another worker's is exactly
+the race being removed.
+
+The settings model **refuses to start in production without `REDIS_URL`**. That is a hard
+failure rather than a warning because the failure it prevents is silent: with four workers
+each keeping its own counter, the configured limit is not the limit in force, and nothing in
+the logs says so. The validator earned its keep immediately — the `migrate` service declared
+production without Redis and was stopped on the spot.
+
+If Redis becomes unreachable at runtime the limiter degrades to per-process counting and
+logs an error, rather than failing open (removing the control exactly when infrastructure is
+unhealthy) or closed (locking every user out of a health service because a cache is down).
+
+Measured against the running production stack with four workers: exactly 15 login attempts
+allowed, then 429. Before this change it would have been roughly 60.
+
+## 4. Content-Security-Policy
 
 `frontend/middleware.ts`, applied per request because a nonce is by definition per response.
 
@@ -100,7 +121,7 @@ CSS and those are not nonce-stamped. This is a real weakening — style injectio
 exfiltrate data through attribute selectors — and it is recorded here rather than left
 looking like an oversight.
 
-## 4. Verification performed
+## 5. Verification performed
 
 The production stack was built, started and tested, not just written:
 
@@ -114,8 +135,10 @@ The production stack was built, started and tested, not just written:
 | Database reachable from the host | no |
 | Migrations applied before the API accepted traffic | yes |
 | API reachable only through the web origin's proxy | yes |
+| Login limit across 4 workers | 15 allowed, then 429 |
+| Production start refused without `REDIS_URL` | yes |
 
-## 5. Operating it
+## 6. Operating it
 
 ```bash
 docker compose -f docker-compose.prod.yml logs -f api
@@ -129,13 +152,19 @@ Logs are structured JSON with request ids, and the logging formatter redacts cre
 tokens (`backend/app/core/logging.py`). Every error response carries `X-Request-ID`, so a
 user's report can be tied to a log line without asking them for anything sensitive.
 
+Clearing rate-limit counters, which restarting the API no longer does:
+
+```bash
+docker compose -f docker-compose.prod.yml exec redis redis-cli FLUSHDB
+```
+
 **The demo data ages.** Slots are generated relative to seed time, so a stack left running
 for weeks will show an empty appointments screen. Re-running the seeder is idempotent and
 tops up an upcoming appointment.
 
 ---
 
-## 6. What is missing before this could be deployed for real
+## 7. What is missing before this could be deployed for real
 
 Not a summary — the actual list.
 
@@ -157,12 +186,6 @@ Not a summary — the actual list.
 - **No DSPT submission, no DTAC assessment, no DPIA.** None started.
 - **No named Clinical Safety Officer**, so no DCB0129/0160 safety case can exist — blocker
   B5 in `ASSUMPTIONS.md`.
-- **D-WEBKIT-SESSION is open.** Safari users may be signed out on every device. Cause
-  unknown; the cross-origin hypothesis was tested and disproved. See
-  `docs/testing/cross-browser.md` §3.
-- **The rate limiter is in-process.** With 4 uvicorn workers each keeps its own counter, so
-  the effective login limit is roughly four times the configured one, and it resets on every
-  deploy. It needs shared storage to mean what it says.
 - **No email delivery.** Password reset and confirmation emails are not sent anywhere.
 
 **Clinical and data**
