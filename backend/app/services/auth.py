@@ -52,6 +52,11 @@ from app.services.audit import AuditService
 
 logger = get_logger(__name__)
 
+#: How long after a rotation a replay of the spent token is treated as the client racing
+#: itself rather than as theft. Short on purpose - long enough to cover two page loads
+#: overlapping, far too short to cover a token stolen and used from somewhere else.
+REFRESH_RACE_GRACE = timedelta(seconds=10)
+
 
 @dataclass(frozen=True, slots=True)
 class RequestContext:
@@ -293,6 +298,28 @@ class AuthService:
 
     # --- Refresh -------------------------------------------------------------
 
+    async def _is_benign_refresh_race(self, stored: RefreshToken) -> bool:
+        """True when a rotated token was replayed within seconds and its successor is live.
+
+        Three conditions, all required:
+
+        * the token was rotated rather than revoked some other way - `replaced_by` is set,
+          which logout and reuse-revocation never populate;
+        * its replacement still exists and has not itself been revoked, so the chain has
+          not moved on and nobody has already ended these sessions;
+        * the rotation happened within `REFRESH_RACE_GRACE`.
+
+        Anything outside that is treated as reuse and revokes everything.
+        """
+        if stored.replaced_by is None or stored.revoked_at is None:
+            return False
+
+        if datetime.now(UTC) - stored.revoked_at > REFRESH_RACE_GRACE:
+            return False
+
+        replacement = await self.refresh_tokens.get_by_id(stored.replaced_by)
+        return replacement is not None and replacement.revoked_at is None
+
     async def refresh(self, raw_token: str, context: RequestContext) -> IssuedSession:
         stored = await self.refresh_tokens.get_by_hash(hash_token(raw_token))
 
@@ -300,6 +327,37 @@ class AuthService:
             raise AuthenticationRequired("Your session has expired. Please sign in again.")
 
         if stored.revoked_at is not None:
+            # Before treating this as theft, rule out the one benign way it happens.
+            #
+            # The client exchanges the refresh cookie on every page load. When two of those
+            # overlap - a navigation starting before the previous one's rotated cookie has
+            # come back, or two tabs opening together - the second presents a token the
+            # first has just spent. That is the legitimate user racing themselves, and
+            # answering it by ending every session on every device is a bad outcome for a
+            # patient who did nothing wrong. It was also the cause of intermittent
+            # sign-outs across the browser test suite, which I first misread as a WebKit
+            # cookie-storage defect (docs/testing/cross-browser.md §3).
+            #
+            # The window is deliberately narrow, and the replacement must still be live: a
+            # thief replaying a stolen token minutes later, or after the chain has moved
+            # on, still triggers the full revocation below. What is given up is detection
+            # of a theft that replays within seconds of the rotation it raced - and in that
+            # window the attacker gets a 401 and no session either way.
+            if await self._is_benign_refresh_race(stored):
+                await self.audit.record(
+                    action=AuditAction.TOKEN_REFRESH_RACE,
+                    result=AuditResult.DENIED,
+                    actor_user_id=stored.user_id,
+                    resource_type="RefreshToken",
+                    resource_id=stored.id,
+                    request_id=context.request_id,
+                    ip_hash=context.ip_hash,
+                    user_agent_hash=context.user_agent_hash,
+                    detail="Rotated token replayed within the race window; no sessions revoked.",
+                )
+                await self._session.commit()
+                raise AuthenticationRequired("Your session has expired. Please sign in again.")
+
             # Reuse of an already-rotated token. Either the legitimate holder replayed an
             # old value or an attacker is using a stolen copy, and the two are
             # indistinguishable from here. Ending every session for this user is the only
