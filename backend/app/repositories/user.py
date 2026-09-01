@@ -133,6 +133,10 @@ class RefreshTokenRepository:
         stmt = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
         return (await self._session.execute(stmt)).scalar_one_or_none()
 
+    async def get_by_id(self, token_id: uuid.UUID) -> RefreshToken | None:
+        stmt = select(RefreshToken).where(RefreshToken.id == token_id)
+        return (await self._session.execute(stmt)).scalar_one_or_none()
+
     async def revoke(self, token: RefreshToken) -> None:
         token.revoked_at = datetime.now(UTC)
         await self._session.flush()

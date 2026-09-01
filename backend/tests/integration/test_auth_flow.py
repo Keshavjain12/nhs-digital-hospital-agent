@@ -7,11 +7,12 @@ S11 (account enumeration), S12 (lockout), S13 (token reuse).
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 AUTH = "/api/v1/auth"
@@ -255,7 +256,15 @@ async def test_reusing_a_rotated_refresh_token_revokes_every_session(
 
     A stolen refresh token and the legitimate user are indistinguishable at this point,
     so the only safe response is to end every session and make the real user sign in.
+
+    The replay is aged past REFRESH_RACE_GRACE first. Inside that window a replay is
+    treated as the client racing itself rather than as theft (see the test below), and a
+    test that replayed immediately would be exercising the wrong branch while appearing to
+    prove this one.
     """
+    from app.models.identity import RefreshToken
+    from app.services.auth import REFRESH_RACE_GRACE
+
     await register(api)
     await login(api, "alex.morgan@example.test", VALID_PASSWORD)
 
@@ -265,18 +274,88 @@ async def test_reusing_a_rotated_refresh_token_revokes_every_session(
     # Legitimate rotation - the stolen value is now spent.
     assert (await api.post(f"{AUTH}/refresh")).status_code == 200
 
+    # Age the rotation so the replay falls outside the race window.
+    await db_session.execute(
+        update(RefreshToken)
+        .where(RefreshToken.revoked_at.is_not(None))
+        .values(revoked_at=datetime.now(UTC) - REFRESH_RACE_GRACE - timedelta(seconds=5))
+    )
+    await db_session.commit()
+
     replayed = await api.post(f"{AUTH}/refresh", cookies={"refresh_token": stolen})
     assert replayed.status_code == 401
 
     # And the session issued by the legitimate rotation is dead too.
-    from app.models.identity import RefreshToken
-
     live = (
         (await db_session.execute(select(RefreshToken).where(RefreshToken.revoked_at.is_(None))))
         .scalars()
         .all()
     )
     assert live == []
+
+
+async def test_a_rotated_token_replayed_at_once_does_not_end_every_session(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The client racing itself must not be punished like theft.
+
+    The session is restored from the refresh cookie on every page load. Two of those
+    overlapping - a navigation starting before the previous one's rotated cookie has come
+    back, or two tabs opening together - replays a token the other has just spent. Treating
+    that as theft signs a patient out on every device for doing nothing wrong, and it was
+    the cause of intermittent sign-outs across the browser suite.
+
+    The replayed request is still refused. What must not happen is the rest of the user's
+    sessions being destroyed with it.
+    """
+    from app.models.identity import RefreshToken
+
+    await register(api)
+    await login(api, "alex.morgan@example.test", VALID_PASSWORD)
+
+    spent = api.cookies.get("refresh_token")
+    assert spent
+
+    assert (await api.post(f"{AUTH}/refresh")).status_code == 200
+
+    # Immediately - inside the grace window, no ageing.
+    replayed = await api.post(f"{AUTH}/refresh", cookies={"refresh_token": spent})
+    assert replayed.status_code == 401
+
+    live = (
+        (await db_session.execute(select(RefreshToken).where(RefreshToken.revoked_at.is_(None))))
+        .scalars()
+        .all()
+    )
+    assert len(live) == 1, "the session from the legitimate rotation must survive"
+
+
+async def test_the_refresh_race_is_recorded_distinctly_from_theft(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    """An auditor must be able to tell the two apart.
+
+    Both are a rotated token presented twice, but one ends every session and the other ends
+    nothing. Logging them under the same action would make a benign race look like a
+    security incident, and bury real ones among them.
+    """
+    from app.models.audit import AuditAction, AuditLog
+
+    await register(api)
+    await login(api, "alex.morgan@example.test", VALID_PASSWORD)
+
+    spent = api.cookies.get("refresh_token")
+    assert spent
+    assert (await api.post(f"{AUTH}/refresh")).status_code == 200
+    assert (await api.post(f"{AUTH}/refresh", cookies={"refresh_token": spent})).status_code == 401
+
+    actions = (
+        (await db_session.execute(select(AuditLog.action).order_by(AuditLog.occurred_at)))
+        .scalars()
+        .all()
+    )
+    assert AuditAction.TOKEN_REFRESH_RACE in actions
+    assert AuditAction.TOKEN_REUSE_DETECTED not in actions
 
 
 async def test_logout_is_idempotent(api: AsyncClient) -> None:

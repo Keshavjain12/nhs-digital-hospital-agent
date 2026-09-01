@@ -34,10 +34,12 @@ export async function signIn(page: Page, role: Role): Promise<void> {
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 15_000 });
   } catch (error) {
     // The login limiter allows 15 attempts per 15 minutes, and each full run of this suite
-    // spends three. Iterating on these tests exhausts it, and the symptom is a bare
+    // spends five. Iterating on these tests exhausts it, and the symptom is a bare
     // navigation timeout that looks nothing like its cause - so say so explicitly rather
-    // than leaving the next person to work it out. The limiter is in-process, so
-    // `docker compose restart api` clears it.
+    // than leaving the next person to work it out.
+    //
+    // The counter now lives in Redis so that every worker shares one window, which means
+    // restarting the API no longer clears it. Flush Redis instead.
     const rateLimited = await page
       .getByText(/too many attempts/i)
       .isVisible()
@@ -46,8 +48,9 @@ export async function signIn(page: Page, role: Role): Promise<void> {
     if (rateLimited) {
       throw new Error(
         `Sign-in for ${role} was rate limited (15 attempts per 15 minutes). ` +
-          "This is the limiter working, not a defect. Run `docker compose restart api` " +
-          "to clear the in-process counter, or wait for the window to pass.",
+          "This is the limiter working, not a defect. Run " +
+          "`docker compose exec redis redis-cli FLUSHDB` to clear the shared counter, " +
+          "or wait for the window to pass.",
       );
     }
     throw error;

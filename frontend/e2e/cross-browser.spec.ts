@@ -85,15 +85,6 @@ describeSignedIn("patient", "patient journeys", (getPage) => {
   });
 
   test("appointments load and show a booking reference", async () => {
-    // Known defect WEBKIT-SESSION: WebKit stops storing the rotated refresh cookie after
-    // the second page load, so the third replays a spent token, the server correctly
-    // reads that as reuse, and every session for the user is revoked. Not a defect in
-    // this test. See docs/testing/cross-browser.md.
-    test.fixme(
-      test.info().project.name === "webkit",
-      "WEBKIT-SESSION: rotated refresh cookie not stored; see docs/testing/cross-browser.md",
-    );
-
     const page = getPage();
     await page.goto("/appointments");
 

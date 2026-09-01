@@ -3,7 +3,7 @@
 # "Production-shaped", not production-ready. This runs the application the way a deployment
 # would - built images rather than mounted source, no reload, migrations applied before the
 # API starts, the database not reachable from outside - but the things a real NHS deployment
-# needs are listed in docs/deployment.md §6 and most of them are absent. Read that before
+# needs are listed in docs/deployment.md §7 and most of them are absent. Read that before
 # putting this anywhere.
 #
 #   docker compose -f docker-compose.prod.yml up -d --build
@@ -33,6 +33,18 @@ services:
       retries: 10
       start_period: 15s
 
+  redis:
+    image: redis:7-alpine
+    # Counters only, so no persistence and no volume. Nothing here is worth keeping across
+    # a restart - and losing it resets a limit rather than losing data.
+    command: redis-server --save "" --appendonly no
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   # Migrations run as their own one-shot service rather than from the API's entrypoint.
   # Two API replicas racing `alembic upgrade head` at start-up is a real way to corrupt a
   # schema, and folding migrations into the app makes that the default behaviour.
@@ -44,6 +56,11 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       ENVIRONMENT: production
+      # Migrations never rate-limit anything, but the settings model is validated as a
+      # whole and production requires shared rate-limit storage. Declaring production
+      # without it stopped this service outright - which is the validator working, and the
+      # reason it is a hard failure rather than a warning.
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
@@ -59,11 +76,16 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      # Required in production - the settings validator refuses to start without it,
+      # because the in-process fallback counts per worker rather than per service.
+      REDIS_URL: redis://redis:6379/0
       # The browser never calls the API directly - the web service proxies it on its own
       # origin - so no cross-origin request is expected and the allow-list stays empty.
       CORS_ORIGINS: ${CORS_ORIGINS:-}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully

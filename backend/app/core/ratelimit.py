@@ -1,22 +1,36 @@
 """Rate limiting.
 
-An in-process sliding-window counter. Brief §17 requires rate limiting; this covers the
-single-instance development and staging deployment this project targets.
+Brief §17 requires rate limiting. Two implementations behind one interface:
 
-**Known limitation, stated rather than hidden:** the counters live in process memory, so
-with more than one API replica each replica enforces its own limit and the effective
-limit multiplies by the replica count. Moving to Redis is the fix, and is the reason
-`RateLimiter` is an interface with the storage behind it - see `RedisRateLimiter` as the
-documented next step in docs/architecture/02-system-architecture.md.
+* `InMemoryRateLimiter` - a sliding-window log in process memory. Correct for a single
+  process, and used for development and the test suite.
+* `RedisRateLimiter` - the same algorithm with the window in Redis, so every worker and
+  every replica counts against one total.
+
+The in-memory one was the only implementation until the production stack started running
+uvicorn with four workers, at which point each worker kept its own counter and the
+effective login limit became roughly four times the configured one - and reset on every
+deploy. A limit whose real value is "the configured number times however many workers
+happen to be running" is not a control, so production now requires REDIS_URL
+(`app/core/config.py`).
 """
 
 from __future__ import annotations
 
 import asyncio
 import time
+import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Protocol
+
+from redis.asyncio import Redis
+from redis.asyncio import from_url as redis_from_url
+from redis.exceptions import RedisError
+
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +107,94 @@ class InMemoryRateLimiter:
             return len(stale)
 
 
+#: One atomic sliding-window check.
+#:
+#: A Lua script rather than a pipeline, because the read and the write must not interleave
+#: with another worker's: two requests both reading "14 of 15 used" and both adding one is
+#: exactly the race this whole change exists to remove.
+#:
+#: KEYS[1] the window key.  ARGV: now (ms), window (ms), max events, a unique member id.
+#: Returns {allowed, retry_after_seconds}.
+_SLIDING_WINDOW = """
+local now = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+
+redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, now - window)
+local used = redis.call('ZCARD', KEYS[1])
+
+if used >= limit then
+  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  local retry = 1
+  if oldest[2] then
+    retry = math.ceil((tonumber(oldest[2]) + window - now) / 1000)
+    if retry < 1 then retry = 1 end
+  end
+  return {0, retry}
+end
+
+redis.call('ZADD', KEYS[1], now, ARGV[4])
+-- Expire slightly beyond the window so an idle key cannot linger, and so a key nobody
+-- touches again is reclaimed without a sweeper.
+redis.call('PEXPIRE', KEYS[1], window + 1000)
+return {1, 0}
+"""
+
+
+class RedisRateLimiter:
+    """The sliding-window log, shared across every worker and replica.
+
+    Falls back to a local counter when Redis is unreachable rather than failing either
+    open or closed. Failing open removes the control at exactly the moment infrastructure
+    is unhealthy; failing closed locks every user out of a health service because a cache
+    is down. Degrading to per-process counting keeps *a* limit in force and says so loudly
+    in the log.
+    """
+
+    def __init__(self, url: str, fallback: InMemoryRateLimiter | None = None) -> None:
+        self._url = url
+        self._client: Redis | None = None
+        self._fallback = fallback or InMemoryRateLimiter()
+
+    def _connect(self) -> Redis:
+        if self._client is None:
+            self._client = redis_from_url(self._url, decode_responses=True)
+        return self._client
+
+    async def check(self, key: str, limit: RateLimit) -> RateLimitVerdict:
+        try:
+            client = self._connect()
+            now_ms = int(time.time() * 1000)
+            # EVAL rather than a registered script: redis-py caches by SHA behind
+            # register_script, but its async typing does not line up and the saving is a
+            # few hundred bytes per call on a path that runs at human speed.
+            allowed, retry_after = await client.eval(
+                _SLIDING_WINDOW,
+                1,
+                f"rl:{key}",
+                now_ms,
+                limit.window_seconds * 1000,
+                limit.max_events,
+                f"{now_ms}-{uuid.uuid4().hex}",
+            )
+        except RedisError as error:
+            logger.error(
+                "rate_limiter_unavailable",
+                extra={"error": type(error).__name__, "detail": "degraded to per-process counting"},
+            )
+            return await self._fallback.check(key, limit)
+
+        return RateLimitVerdict(allowed=bool(allowed), retry_after_seconds=int(retry_after))
+
+    async def reset(self, key: str) -> None:
+        try:
+            await self._connect().delete(f"rl:{key}")
+        except RedisError:
+            # A failed reset only means the user keeps a few counted attempts they should
+            # not have. Not worth failing the request they just succeeded at.
+            await self._fallback.reset(key)
+
+
 # Limits from docs/api/api-contract-v1.md §1.
 #
 # LOGIN_LIMIT is deliberately higher than settings.max_failed_logins (5). The two controls
@@ -114,8 +216,26 @@ PASSWORD_RESET_LIMIT = RateLimit(max_events=3, window_seconds=3600)
 AUTHENTICATED_LIMIT = RateLimit(max_events=300, window_seconds=60)
 ANONYMOUS_LIMIT = RateLimit(max_events=60, window_seconds=60)
 
-_limiter = InMemoryRateLimiter()
+_limiter: RateLimiter | None = None
 
 
 def get_rate_limiter() -> RateLimiter:
+    """The process-wide limiter, chosen once from configuration.
+
+    Redis when REDIS_URL is set, which production requires; the in-process counter
+    otherwise. Built lazily so importing this module does not open a connection - the test
+    suite and the migration runner both import it without wanting one.
+    """
+    global _limiter
+    if _limiter is None:
+        from app.core.config import get_settings
+
+        url = get_settings().redis_url
+        _limiter = RedisRateLimiter(url) if url else InMemoryRateLimiter()
     return _limiter
+
+
+def reset_rate_limiter() -> None:
+    """Drop the cached limiter. For tests that change configuration between cases."""
+    global _limiter
+    _limiter = None

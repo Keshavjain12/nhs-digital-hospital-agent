@@ -11,7 +11,7 @@ from enum import StrEnum
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import Field, PostgresDsn, field_validator
+from pydantic import Field, PostgresDsn, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     max_failed_logins: int = 5
     account_lockout_minutes: int = 15
 
+    # --- Rate limiting -------------------------------------------------------
+    #: Shared storage for rate-limit counters. Unset means the in-process limiter, which
+    #: counts per worker rather than per service - acceptable for a single-process
+    #: development run, and refused in production by the validator below.
+    redis_url: str | None = None
+
     # --- CORS ----------------------------------------------------------------
     # NoDecode suppresses pydantic-settings' default JSON decoding for complex types, so
     # the validator below receives the raw comma-separated string that a .env file holds.
@@ -77,6 +83,23 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _production_needs_shared_rate_limiting(self) -> Settings:
+        """Production must not fall back to per-process counters.
+
+        With several uvicorn workers the in-process limiter counts per worker, so the
+        effective limit is the configured one multiplied by the worker count, and it resets
+        on every deploy. That is not a limit anyone can reason about, and the failure is
+        silent - which is why this refuses to start rather than logging a warning nobody
+        reads.
+        """
+        if self.environment is Environment.PRODUCTION and not self.redis_url:
+            raise ValueError(
+                "REDIS_URL is required in production: without it rate limiting is "
+                "per-worker, so the configured limits are not the limits in force."
+            )
+        return self
 
     @property
     def is_production(self) -> bool:

@@ -51,6 +51,10 @@ class AuditAction:
     ACCOUNT_LOCKED = "ACCOUNT_LOCKED"
     TOKEN_REFRESHED = "TOKEN_REFRESHED"
     TOKEN_REUSE_DETECTED = "TOKEN_REUSE_DETECTED"
+    #: A rotated token presented again within seconds, while its replacement is still live.
+    #: Recorded separately from reuse because the response is different: the request is
+    #: refused, but no session is revoked. See AuthService.refresh.
+    TOKEN_REFRESH_RACE = "TOKEN_REFRESH_RACE"
     PERMISSION_DENIED = "PERMISSION_DENIED"
     PATIENT_RECORD_VIEW = "PATIENT_RECORD_VIEW"
     PATIENT_DATA_UPDATED = "PATIENT_DATA_UPDATED"

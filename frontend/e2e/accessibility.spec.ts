@@ -151,15 +151,6 @@ describeSignedIn("patient", "patient pages", (getPage) => {
   });
 
   test("the symptom check can be started and answered by keyboard alone", async () => {
-    // Known defect WEBKIT-SESSION: WebKit stops storing the rotated refresh cookie after
-    // the second page load, so the third replays a spent token, the server correctly
-    // reads that as reuse, and every session for the user is revoked. Not a defect in
-    // this test. See docs/testing/cross-browser.md.
-    test.fixme(
-      test.info().project.name === "webkit",
-      "WEBKIT-SESSION: rotated refresh cookie not stored; see docs/testing/cross-browser.md",
-    );
-
     // The longest test here: it restarts a conversation, waits for the server, and tabs
     // through the page. WebKit runs it slowest and was hitting the default limit.
     test.setTimeout(90_000);

@@ -23,6 +23,19 @@ services:
       retries: 10
       start_period: 10s
 
+  redis:
+    image: redis:7-alpine
+    # Rate-limit counters only - no persistence wanted. Losing them on restart resets a
+    # limit, which is the same thing the old in-process limiter did on every deploy.
+    command: redis-server --save "" --appendonly no
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build:
       context: ./backend
@@ -31,10 +44,13 @@ services:
     environment:
       # Overrides the .env value so the container reaches Postgres by service name.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hospital}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-hospital}
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./backend:/app
