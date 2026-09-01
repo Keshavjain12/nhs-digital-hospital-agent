@@ -11,15 +11,15 @@ import type { ApiErrorBody, ErrorCode } from "@/types/api";
 /**
  * Empty by default, which means "this origin".
  *
- * The API used to be addressed absolutely at http://localhost:8000, making every call
- * cross-origin. That cost us a real defect: WebKit stopped storing the rotated refresh
- * cookie after the second page load, replayed a spent token, and the server - correctly -
- * read that as reuse and ended every session for the user. A Safari user was signed out on
- * their third page load, on every device. See docs/testing/cross-browser.md §3.
+ * Requests go to /api/v1 on the app's own origin and are proxied to the backend by the
+ * rewrite in next.config.ts. That keeps the session cookie first-party, removes the CORS
+ * preflight from every request, and keeps the backend's address out of the browser. Set
+ * NEXT_PUBLIC_API_BASE_URL only to deliberately talk to a different origin.
  *
- * Requests now go to /api/v1 on the app's own origin and are proxied to the backend by the
- * rewrite in next.config.ts, so the cookie is first-party and no CORS preflight is involved
- * at all. Set NEXT_PUBLIC_API_BASE_URL only to deliberately talk to a different origin.
+ * This was originally changed in the belief that a cross-origin cookie was why WebKit
+ * stopped storing the rotated refresh token. That turned out to be a misdiagnosis - the
+ * sign-outs were a refresh race, not a browser defect (docs/testing/cross-browser.md §3).
+ * The change is kept on its own merits.
  */
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -135,8 +135,13 @@ let refreshInFlight: Promise<boolean> | null = null;
  * Deduplicated: if three requests 401 at once, they share one refresh rather than firing
  * three. That matters beyond efficiency - the backend rotates refresh tokens and treats
  * reuse as theft, so concurrent refreshes would revoke the user's own session.
+ *
+ * Exported because the session provider restores the session on every page load and was
+ * calling POST /auth/refresh directly, going around this guard entirely. Two of those
+ * overlapping is precisely the race the comment above describes, and it was signing users
+ * out mid-session. Anything that needs a refresh must come through here.
  */
-async function refreshAccessToken(): Promise<boolean> {
+export async function refreshAccessToken(): Promise<boolean> {
   refreshInFlight ??= (async () => {
     try {
       const response = await rawRequest("/auth/refresh", {
@@ -178,6 +183,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 export const api = {
+  /** Restore a session from the refresh cookie. Deduplicated - see refreshAccessToken. */
+  restoreSession: () => refreshAccessToken(),
   get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
   post: <T>(path: string, body?: unknown, options: Partial<RequestOptions> = {}) =>
     request<T>(path, { method: "POST", body, ...options }),

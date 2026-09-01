@@ -1,7 +1,8 @@
 # Cross-browser testing
 
-**Status:** run against Chromium, Firefox and WebKit, 31 August 2026. **One open defect
-found in WebKit**, unresolved — see §3.
+**Status:** run against Chromium, Firefox and WebKit. 30/30 on every engine, 2 September
+2026. The defect previously recorded here as a WebKit fault was a misdiagnosis; §3 records
+what it actually was and how it was found.
 
 Two suites run on all three engines: the WCAG audit
 (`docs/testing/accessibility-audit.md`) and the journey checks in
@@ -31,9 +32,11 @@ as certain.
 
 | Engine | Result |
 | --- | --- |
-| Chromium | 29/29 pass |
-| Firefox | 29/29 pass |
-| WebKit | 27 pass, 2 marked `fixme` for the defect in §3 |
+| Chromium | 30/30 pass |
+| Firefox | 30/30 pass |
+| WebKit | 30/30 pass |
+
+No test is skipped or marked `fixme` on any engine.
 
 Run one engine at a time:
 
@@ -43,84 +46,76 @@ npx playwright test --project=firefox
 npx playwright test --project=webkit
 ```
 
-The login limiter allows 15 attempts per 15 minutes and each project spends five, so
-`docker compose restart api` between projects clears the in-process counter. The suite runs
+The login limiter allows 15 attempts per 15 minutes and each project spends five. The
+counter is now shared through Redis, so restarting the API no longer clears it —
+`docker compose exec redis redis-cli FLUSHDB` does. The suite runs
 serially (`workers: 1`) — see `playwright.config.ts` for why that is a correctness
 requirement here and not a performance choice.
 
 ---
 
-## 3. Open defect — WEBKIT-SESSION
+## 3. A defect I misdiagnosed, and what it actually was
 
-**In WebKit, a signed-in user is signed out on the third full page load — and because reuse
-detection revokes every session for that user, they are signed out on every device.**
+**Closed 2 September 2026.** The behaviour was real. My explanation of it was wrong twice
+before I found the cause, so the whole sequence is recorded rather than just the answer.
 
 ### What was observed
 
-A probe that signs in and then loads four pages, reading the `refresh_token` cookie after
-each:
+Sessions ended mid-run. A probe reading the `refresh_token` cookie after each page load
+showed WebKit apparently rotating it twice and then repeating the same value, while Chromium
+rotated on every load. The user was signed out on the third load — and because reuse
+detection revokes every session for that user, on every device.
 
-```
-chromium   a5huz1qQRw | OW8d8dkBWh | rng38U588T | jq48kYZd4B    (four distinct values)
-webkit     FaOo1GvWhp | 19M4_nsMLG | FkA0dE6M1i | FkA0dE6M1i    (stalls, then repeats)
-```
+### Two wrong explanations
 
-Chromium rotates the cookie on every load. WebKit rotates twice and then stops storing the
-new value, so the next load presents a token that has already been spent.
+**"The cookie is cross-origin."** The API was addressed absolutely on another port, and
+WebKit is stricter than Chromium about cookies written by cross-origin responses. Tested by
+proxying the API under the app's own origin: WebKit still failed, one load earlier. Wrong.
 
-The server's response to that is correct and deliberate: a replayed refresh token is
-indistinguishable from a stolen one, so `revoke_all_for_user` ends every session
-(`backend/app/services/auth.py`). The security control is behaving exactly as designed. The
-problem is that WebKit hands it a false positive.
+**"It is a WebKit cookie-storage bug."** This survived longer because the evidence looked
+browser-specific. It was not. Bisecting the changes since — removing the CSP middleware,
+then `force-dynamic` — the behaviour did not come back, which meant nothing I had added was
+responsible and the original diagnosis had to be re-examined.
 
-Confirmed by a second probe: signed out on load 3 under WebKit, still signed in after load 4
-under Chromium.
+### What it actually was
 
-### The cause is not what I first assumed
+**The client racing itself.** The session provider exchanged the refresh cookie on every
+page load by calling `POST /auth/refresh` directly, going around the deduplication that
+already existed in `lib/api.ts` for the 401-retry path. Two of those overlapping — a
+navigation starting before the previous one's rotated cookie came back — replays a token the
+other has just spent. The server reads that as theft, correctly and by design, and ends
+every session.
 
-My first hypothesis was that the cookie being cross-origin was to blame: the API was
-addressed absolutely at `localhost:8000` while the app ran on `localhost:3001`, and WebKit
-applies stricter rules than Chromium or Firefox to cookies written by a cross-origin XHR
-response.
+The proof it was never browser-specific: forcing a revocation from outside the browser and
+then loading a page reproduces the identical signature **in Chromium**, which never showed
+the "WebKit defect". The cookie appearing to stall was the *symptom* of a revoked session —
+once refresh returns 401 there is no new cookie to store — not a storage failure. WebKit
+simply ran last in the suite, after the most stale sessions had accumulated. Later the same
+signature appeared in Firefox, which is what finally ruled the browser out.
 
-**That hypothesis was tested and is wrong.** The API is now proxied under the app's own
-origin, so the cookie is first-party and no CORS is involved. WebKit still fails — in fact
-it stalls one load earlier:
+### The fix
 
-```
-                    login       load 1      load 2      load 3      load 4
-chromium (after)    fjZcSXjevv  zgHTmjAucv  RC66PqTE8L  SUypZNpDra  0YsxeM9sjv
-webkit   (after)    6v_cpNlUOS  lZK8pJzoYm  lZK8pJzoYm  lZK8pJzoYm  lZK8pJzoYm
-```
+Two halves, because the client should not cause it and the server should not over-react:
 
-So: WebKit stores the cookie when it is first created, accepts one update, and then stops
-accepting updates. Chromium accepts every one. The cause is something about how WebKit
-handles a repeated `Set-Cookie` for an existing cookie on a fetch response, and I have not
-identified it.
+- **`SessionProvider` now restores through `api.restoreSession()`**, the same deduplicated
+  path everything else uses, so only one exchange is ever in flight per tab.
+- **A ten-second grace window on the server.** A rotated token replayed while its
+  replacement is still live is recorded as `TOKEN_REFRESH_RACE` and refused, without
+  revoking anything. Outside that window, or once the chain has moved on, the full
+  revocation still fires — covered by a test that ages the rotation past the window first,
+  so it exercises the theft branch rather than accidentally proving the new one.
 
-The same-origin proxy was kept regardless — it removes a CORS preflight from every request
-and keeps the backend's address out of the browser, which are worth having on their own
-merits. It is simply not the fix for this.
+What is given up is detection of a theft replayed within seconds of the rotation it raced.
+In that window the attacker gets a 401 and no session either way; a token stolen and used
+minutes later, which is the realistic case, still ends every session.
 
-### What has and has not been done
+### Why the mistake is worth recording
 
-- **Not fixed.** The one hypothesis I had was tested and disproved, above. I do not
-  currently know the cause.
-- **Not confirmed on real Safari.** WebKit on Windows is not Safari on macOS or iOS, and
-  that remains the most likely way this turns out to be narrower than it looks.
-- **Not explained by deployment topology.** The service is now same-origin and the defect
-  persists — one load earlier, in fact — so it cannot be put down to running the API on a
-  separate port in development.
-- **Two tests carry `test.fixme` for WebKit**, referencing this section. They are visible as
-  skipped with a reason rather than deleted or quietly passed.
-
-### Why it matters
-
-Safari is a large share of UK mobile browsing, and this is a patient-facing service. Being
-signed out mid-task is bad; being signed out *on every device* because the service decided
-you might be an attacker is worse, and it would be very hard for a patient to make sense of.
-It should be resolved before any real use, and it is listed in `ASSUMPTIONS.md` as an open
-issue.
+Two page loads overlapping is not exotic, and the consequence — a patient signed out on
+every device for doing nothing wrong — is one they could never explain or avoid. It was
+visible for days as "flaky tests" and attributed to a browser, which is the comfortable
+explanation because it makes it someone else's bug. The evidence that settled it was the
+same signature appearing in the browser that was supposed to be fine.
 
 ---
 
