@@ -71,10 +71,10 @@ export default function AdminDashboardPage() {
             {/* No source data exists for these - see docs/data/dataset-strategy.md B4.
                 Charting invented numbers on an operations screen would be worse than
                 showing nothing. */}
-            <Alert tone="info" title="Not available yet">
-              No occupancy or waiting-time data exists in this environment. These charts
-              arrive once the operational data generator is built, and will be labelled as
-              synthetic.
+            <Alert tone="info" title="No data to show">
+              No occupancy or waiting-time data exists for this service, and no open UK
+              source provides it at this level of detail. Nothing is charted rather than
+              something invented.
             </Alert>
           </Card>
         </>

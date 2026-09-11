@@ -1,7 +1,7 @@
 # Deployment
 
 **Status:** a production-*shaped* deployment, built and run, 31 August 2026.
-**Not production-ready.** §6 lists what is missing, and it is not a short list.
+**Not production-ready.** §7 lists what is missing, and it is not a short list.
 
 This describes how the application is packaged and run as a deployment rather than as a
 development stack: built images instead of mounted source, no reload, migrations applied
@@ -85,7 +85,8 @@ allowed, then 429. Before this change it would have been roughly 60.
 
 ## 4. Content-Security-Policy
 
-`frontend/middleware.ts`, applied per request because a nonce is by definition per response.
+`frontend/proxy.ts` (Next.js 16's name for what was `middleware.ts`), applied per request
+because a nonce is by definition per response.
 
 ```
 default-src 'self';
@@ -129,7 +130,7 @@ The production stack was built, started and tested, not just written:
 | --- | --- |
 | Full browser suite, Chromium | 30/30 |
 | Full browser suite, Firefox | 30/30 |
-| Full browser suite, WebKit | 24 (the rest from D-WEBKIT-SESSION) |
+| Full browser suite, WebKit | 30/30 |
 | CSP present with a per-response nonce | yes |
 | `upgrade-insecure-requests` absent over HTTP, present behind a TLS proxy | yes |
 | Database reachable from the host | no |

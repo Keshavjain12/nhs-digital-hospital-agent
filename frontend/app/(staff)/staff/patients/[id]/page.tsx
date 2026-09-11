@@ -8,6 +8,7 @@ import type { FormEvent } from "react";
 import { Alert, Badge, Button, Card, TriagePanel } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import type { BreakglassResponse, PatientDetailResponse } from "@/types/api";
+import { formatDate, languageName, UK_TIME_ZONE } from "@/lib/format";
 
 export default function PatientRecordPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -132,7 +133,7 @@ export default function PatientRecordPage({ params }: { params: Promise<{ id: st
             {patient.givenName} {patient.familyName}
           </h1>
           <p className="text-nhs-dark-grey">
-            Born {new Date(patient.dateOfBirth).toLocaleDateString("en-GB")} · Age{" "}
+            Born {formatDate(patient.dateOfBirth)} · Age{" "}
             {patient.age}
             {patient.nhsNumber && (
               <>
@@ -169,7 +170,16 @@ export default function PatientRecordPage({ params }: { params: Promise<{ id: st
         <Alert tone="warning" title="You are viewing this record under emergency access">
           This access has been logged against your account and will be reviewed.
           {access.expiresAt && (
-            <> It expires at {new Date(access.expiresAt).toLocaleTimeString("en-GB")}.</>
+            <>
+              {" "}
+              It expires at{" "}
+              {new Date(access.expiresAt).toLocaleTimeString("en-GB", {
+                timeZone: UK_TIME_ZONE,
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              .
+            </>
           )}
         </Alert>
       )}
@@ -177,7 +187,7 @@ export default function PatientRecordPage({ params }: { params: Promise<{ id: st
       {patient.interpreterNeeded && (
         <Alert tone="info" title="Interpreter required">
           This patient has recorded a need for an interpreter. Preferred language:{" "}
-          <strong>{patient.preferredLanguage}</strong>. Arrange interpretation before the
+          <strong>{languageName(patient.preferredLanguage)}</strong>. Arrange interpretation before the
           consultation.
         </Alert>
       )}
@@ -193,7 +203,7 @@ export default function PatientRecordPage({ params }: { params: Promise<{ id: st
           <dl className="space-y-3">
             <div>
               <dt className="font-bold">Date of birth</dt>
-              <dd>{new Date(patient.dateOfBirth).toLocaleDateString("en-GB")}</dd>
+              <dd>{formatDate(patient.dateOfBirth)}</dd>
             </div>
             <div>
               <dt className="font-bold">Sex at birth</dt>
@@ -201,7 +211,7 @@ export default function PatientRecordPage({ params }: { params: Promise<{ id: st
             </div>
             <div>
               <dt className="font-bold">Preferred language</dt>
-              <dd>{patient.preferredLanguage}</dd>
+              <dd>{languageName(patient.preferredLanguage)}</dd>
             </div>
           </dl>
         </Card>
@@ -234,18 +244,18 @@ export default function PatientRecordPage({ params }: { params: Promise<{ id: st
         </Card>
 
         <Card title="Encounters">
-          {/* Honest empty state. Encounters arrive with migration 003; inventing a
-              clinical history on a hospital screen would be far worse than a gap. */}
-          <Alert tone="info" title="Not available yet">
-            Encounter history is not part of this build.
+          {/* Honest empty state. No encounter data exists for this service, and inventing
+              a clinical history on a hospital screen would be far worse than a gap. */}
+          <Alert tone="info" title="Not part of this build">
+            Encounter history is not recorded by this service, so there is nothing to show.
           </Alert>
         </Card>
 
         <Card title="Clinical summary">
-          <Alert tone="info" title="Not available yet">
-            AI-drafted summaries arrive in a later sprint. Any draft will be clearly
-            labelled and will require clinician approval before it forms part of the
-            record.
+          <Alert tone="info" title="Not part of this build">
+            AI-drafted summaries have not been built. The note summariser belongs to the
+            Gen AI workstream; if it is added, every draft must be clearly labelled and
+            approved by a clinician before it forms part of the record.
           </Alert>
         </Card>
       </div>

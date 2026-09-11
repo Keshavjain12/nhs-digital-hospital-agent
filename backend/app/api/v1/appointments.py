@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import select
 
 from app.core.deps import (
     RequestCtx,
@@ -23,6 +24,7 @@ from app.core.deps import (
     authenticated_rate_limit,
 )
 from app.core.errors import AuthenticationRequired, ErrorResponse
+from app.models.operational import Department
 from app.models.scheduling import Appointment, AppointmentSlot
 from app.schemas.base import ResponseMeta
 from app.schemas.booking import (
@@ -32,6 +34,8 @@ from app.schemas.booking import (
     BookingCreatedResponse,
     BookRequest,
     CancelRequest,
+    DepartmentItem,
+    DepartmentListResponse,
     HoldResponse,
     RescheduleRequest,
     SlotItem,
@@ -66,6 +70,33 @@ def _to_item(
         is_cancellable=appointment.is_cancellable,
         cancelled_at=appointment.cancelled_at,
         cancellation_reason=appointment.cancellation_reason,
+    )
+
+
+# --- Departments -------------------------------------------------------------
+
+
+@router.get(
+    "/departments",
+    response_model=DepartmentListResponse,
+    summary="Departments that can be booked into",
+    responses=_ERRORS,
+)
+async def list_departments(
+    principal: VerifiedPrincipal, session: TransactionalSession, context: RequestCtx
+) -> DepartmentListResponse:
+    """Every department, for the booking picker.
+
+    The picker used to build its department list from whichever slots it had loaded, so
+    choosing one department shrank the list to just that one and the patient could not
+    switch without going back. Organisational data only - nothing about any patient.
+    """
+    departments = (
+        (await session.execute(select(Department).order_by(Department.name))).scalars().all()
+    )
+    return DepartmentListResponse(
+        items=[DepartmentItem(id=d.id, code=d.code, name=d.name) for d in departments],
+        meta=ResponseMeta(request_id=context.request_id, data_origin="SYNTHETIC"),
     )
 
 

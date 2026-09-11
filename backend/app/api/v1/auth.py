@@ -180,15 +180,24 @@ async def request_password_reset(
     raw_token = await AuthService(session).request_password_reset(payload.email, context)
 
     if raw_token is not None:
-        # Sprint 2 hands this to the notification outbox. Until then it is logged at debug
-        # level in development only, and never returned in the response.
+        # This build has no email or SMS delivery, so the token goes nowhere: it is stored
+        # hashed and the raw value is discarded here. It is deliberately never logged - a
+        # reset token is a live credential, and a log line holding one would let anyone who
+        # can read the logs take over the account. Only the fact of issue is recorded.
+        #
+        # This comment used to promise a Sprint 2 notification outbox and say the token was
+        # logged at debug level. Neither was true, and a comment claiming a credential is
+        # in the logs is one the next reader would act on.
         logger.debug(
             "password_reset_token_issued",
             extra={"request_id": context.request_id},
         )
 
     return MessageResponse(
-        message="If that email address has an account, we have sent a reset link to it."
+        message=(
+            "If that email address has an account, a reset link has been issued. "
+            "This demonstration does not send email, so no link will arrive."
+        )
     )
 
 

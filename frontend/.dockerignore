@@ -1,0 +1,12 @@
+# Without this the whole working directory is sent to the daemon - hundreds of megabytes of
+# node_modules and build output - and, worse, `COPY . .` in the builder stage lands the
+# host's node_modules on top of the Linux ones installed by `npm ci`. Platform-specific
+# binaries (Next's SWC, for one) do not survive that.
+node_modules/
+.next/
+out/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+.env*

@@ -7,8 +7,10 @@ import { useState } from "react";
 import { Alert, BANDS, Button, Card, Dialog, TriagePanel } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import type { TriageQueueItemSchema, TriageQueueResponse, TriageReviewResponse } from "@/types/api";
+import { UK_TIME_ZONE } from "@/lib/format";
 
 const when = new Intl.DateTimeFormat("en-GB", {
+  timeZone: UK_TIME_ZONE,
   day: "numeric",
   month: "short",
   hour: "2-digit",

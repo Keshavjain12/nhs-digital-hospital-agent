@@ -138,7 +138,6 @@ export const messages: Partial<Record<MessageKey, string>> = {
     "Dewiswch amser sy'n addas i chi. Byddwn yn ei gadw am bum munud tra byddwch yn cadarnhau.",
   "booking.backToAppointments": "Yn ôl i'ch apwyntiadau",
   "booking.department": "Adran",
-  "booking.allDepartments": "Pob adran",
   "booking.loadingTimes": "Wrthi'n llwytho amseroedd…",
   "booking.none.title": "Dim apwyntiadau ar gael",
   "booking.none.body":
