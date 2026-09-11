@@ -40,6 +40,8 @@ export type AppointmentItem = Schemas["AppointmentItem"];
 export type AppointmentListResponse = Schemas["AppointmentListResponse"];
 export type AppointmentDetailResponse = Schemas["AppointmentDetailResponse"];
 export type BookingCreatedResponse = Schemas["BookingCreatedResponse"];
+export type DepartmentItem = Schemas["DepartmentItem"];
+export type DepartmentListResponse = Schemas["DepartmentListResponse"];
 
 // --- Symptom check ----------------------------------------------------------
 export type ChatMessageItem = Schemas["ChatMessageItem"];

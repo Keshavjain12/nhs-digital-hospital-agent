@@ -35,7 +35,7 @@ const nextConfig: NextConfig = {
   // browser loads.
   //
   // The CSP is *not* here: it needs a per-request nonce, and headers() is static. It lives
-  // in middleware.ts instead. These are the headers that do not vary per request.
+  // in proxy.ts instead. These are the headers that do not vary per request.
   async headers() {
     return [
       {

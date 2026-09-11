@@ -10,8 +10,13 @@ import { cn } from "@/lib/cn";
 import { api, ApiError } from "@/lib/api";
 import { useT, type MessageKey } from "@/lib/i18n";
 import type { ChatMessageItem, ChatTurnResponse, TriageResultItem } from "@/types/api";
+import { UK_TIME_ZONE } from "@/lib/format";
 
-const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+const time = new Intl.DateTimeFormat("en-GB", {
+  timeZone: UK_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 const BANDS: Record<string, { labelKey: MessageKey; border: string; dot: string }> = {
   URGENT: {

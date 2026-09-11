@@ -9,9 +9,18 @@ import { forgotPasswordSchema, toFieldErrors } from "@/features/auth/validation"
 import { api, NetworkError } from "@/lib/api";
 import type { MessageResponse } from "@/types/api";
 
+/**
+ * Password reset request.
+ *
+ * The flow is real up to the point of delivery: a token is issued and stored hashed. This
+ * build has no email or SMS delivery, though, so the link never arrives - and the page used
+ * to say "Check your email... if nothing arrives, check your spam folder or try again",
+ * which sent people round in a loop waiting for a message that could not come. It now says
+ * so before they start, and again afterwards.
+ */
 export default function ForgotPasswordPage() {
   const [fieldErrors, setFieldErrors] = useState<Array<{ field: string; message: string }>>([]);
-  const [sent, setSent] = useState(false);
+  const [requested, setRequested] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,7 +45,7 @@ export default function ForgotPasswordPage() {
       // identical response either way; branching here would undo that and turn the page
       // into an account-enumeration oracle - which for a hospital reveals that someone
       // is a patient here.
-      setSent(true);
+      setRequested(true);
     } catch (error) {
       setFormError(
         error instanceof NetworkError
@@ -48,13 +57,13 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  if (sent) {
+  if (requested) {
     return (
       <>
-        <h1 className="mb-6 text-4xl font-bold">Check your email</h1>
-        <Alert tone="success" title="If that address has an account, we have sent a link to it">
-          The link expires in 30 minutes. If nothing arrives, check your spam folder or
-          try again.
+        <h1 className="mb-6 text-4xl font-bold">Reset link requested</h1>
+        <Alert tone="info" title="If that address has an account, a reset link has been issued">
+          This demonstration does not send email, so the link will not arrive. To use a
+          demonstration account, sign in with the password shown on the sign-in page.
         </Alert>
         <p>
           <Link href="/login">Back to sign in</Link>
@@ -66,14 +75,20 @@ export default function ForgotPasswordPage() {
   return (
     <>
       <h1 className="mb-2 text-4xl font-bold">Reset your password</h1>
-      <p className="mb-6 text-nhs-dark-grey">
-        Enter your email address and we will send you a link to set a new password.
+      <p className="mb-4 text-nhs-dark-grey">
+        Enter your email address to request a link to set a new password.
       </p>
+
+      <Alert tone="info" title="This demonstration does not send email">
+        A reset link is issued, but it is not delivered anywhere, so it will not reach you.
+        Demonstration accounts use the password shown on the{" "}
+        <Link href="/login">sign-in page</Link>.
+      </Alert>
 
       <form onSubmit={handleSubmit} noValidate>
         <ErrorSummary errors={fieldErrors} />
         {formError && (
-          <Alert tone="error" title="Could not send the link" focusOnMount>
+          <Alert tone="error" title="Could not request a reset link" focusOnMount>
             {formError}
           </Alert>
         )}
@@ -89,8 +104,8 @@ export default function ForgotPasswordPage() {
           error={fieldErrors.find((e) => e.field === "email")?.message}
         />
 
-        <Button type="submit" size="lg" loading={submitting} loadingText="Sending">
-          Send reset link
+        <Button type="submit" size="lg" loading={submitting} loadingText="Requesting">
+          Request a reset link
         </Button>
       </form>
 

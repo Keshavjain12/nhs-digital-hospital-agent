@@ -7,6 +7,7 @@ S11 (account enumeration), S12 (lockout), S13 (token reuse).
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -388,7 +389,8 @@ async def test_password_reset_response_is_identical_for_any_address(
 
     assert response.status_code == 200
     assert response.json()["message"] == (
-        "If that email address has an account, we have sent a reset link to it."
+        "If that email address has an account, a reset link has been issued. "
+        "This demonstration does not send email, so no link will arrive."
     )
 
 
@@ -398,6 +400,58 @@ async def test_password_reset_never_returns_the_token(api: AsyncClient) -> None:
     response = await api.post(f"{AUTH}/password-reset", json={"email": "alex.morgan@example.test"})
 
     assert "token" not in response.text.lower()
+
+
+async def test_password_reset_never_logs_the_token(
+    api: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A reset token is a live credential, so nothing written to the log may carry it.
+
+    The endpoint's comment used to say the token was "logged at debug level". It was not -
+    but a comment like that invites someone to make it true. This plants a known token and
+    checks every record at the most verbose level, both as a record and as the JSON line the
+    formatter would actually write.
+
+    It collects from the `app` logger directly rather than through pytest's caplog: every
+    create_app() calls configure_logging(), which clears the root logger's handlers and so
+    silently detaches caplog. The first version of this test used caplog and would have
+    passed while checking nothing - the non-empty assertion below is what caught it.
+    """
+    from app.core.logging import JsonFormatter
+
+    class Collector(logging.Handler):
+        def __init__(self) -> None:
+            super().__init__(logging.DEBUG)
+            self.records: list[logging.LogRecord] = []
+
+        def emit(self, record: logging.LogRecord) -> None:
+            self.records.append(record)
+
+    planted = "planted-reset-token-that-must-never-be-logged"
+    monkeypatch.setattr("app.services.auth.generate_opaque_token", lambda *_a, **_k: planted)
+    await register(api)
+
+    collector = Collector()
+    app_logger = logging.getLogger("app")
+    previous_level = app_logger.level
+    app_logger.addHandler(collector)
+    app_logger.setLevel(logging.DEBUG)
+    try:
+        response = await api.post(
+            f"{AUTH}/password-reset", json={"email": "alex.morgan@example.test"}
+        )
+    finally:
+        app_logger.removeHandler(collector)
+        app_logger.setLevel(previous_level)
+
+    assert response.status_code == 200
+    # Not vacuous: the debug event on the token path must have been captured.
+    assert any(r.getMessage() == "password_reset_token_issued" for r in collector.records)
+
+    formatter = JsonFormatter()
+    for record in collector.records:
+        assert planted not in formatter.format(record)
+        assert all(planted not in str(value) for value in record.__dict__.values())
 
 
 # --- Storage guarantees ------------------------------------------------------

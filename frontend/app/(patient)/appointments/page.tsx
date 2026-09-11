@@ -9,8 +9,10 @@ import { Alert, Badge, Button, ButtonLink, Card, Dialog } from "@/components/ui"
 import { api, ApiError } from "@/lib/api";
 import { useT, type MessageKey } from "@/lib/i18n";
 import type { AppointmentItem, AppointmentListResponse } from "@/types/api";
+import { UK_TIME_ZONE } from "@/lib/format";
 
 const when = new Intl.DateTimeFormat("en-GB", {
+  timeZone: UK_TIME_ZONE,
   weekday: "long",
   day: "numeric",
   month: "long",
