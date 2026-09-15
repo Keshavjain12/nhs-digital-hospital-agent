@@ -1,7 +1,7 @@
-"""Operational models.
+"""Operational models: sites and departments, which staff records depend on.
 
-Migration 001 covers only sites and departments, which staff records depend on.
-Slots, appointments, beds and notifications arrive in migration 002 (Sprint 2).
+Slots and appointments live in app.models.scheduling (migration 002). Beds and
+notifications were planned but are not part of this build.
 """
 
 from __future__ import annotations

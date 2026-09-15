@@ -23,7 +23,13 @@ from app.core.db import SCHEMAS, Base
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False, which fileConfig does NOT default to.
+    #
+    # The default silently sets .disabled on every logger that already exists. The test
+    # suite runs these migrations at session start, after the application modules are
+    # imported, so it was switching off the app's own loggers for the rest of the run -
+    # and any test asserting on a log line would have passed while checking nothing.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

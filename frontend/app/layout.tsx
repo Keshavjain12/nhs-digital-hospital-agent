@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { NonClinicalBanner, SkipLink } from "@/components/ui";
 import { SessionProvider } from "@/features/auth/SessionProvider";
 import { LocalisedShell } from "@/features/i18n/LocalisedShell";
@@ -54,6 +55,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SkipLink />
               <NonClinicalBanner />
               {children}
+              {/* Once, here, so no page can be left without it - see SiteFooter. */}
+              <SiteFooter />
             </LocalisedShell>
           </SessionProvider>
         </QueryProvider>

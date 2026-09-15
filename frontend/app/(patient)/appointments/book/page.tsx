@@ -8,20 +8,28 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { api, ApiError } from "@/lib/api";
+import { UK_TIME_ZONE, ukDayKey } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import type {
   AppointmentDetailResponse,
   BookingCreatedResponse,
+  DepartmentListResponse,
   HoldResponse,
   SlotItem,
   SlotListResponse,
 } from "@/types/api";
 
-/** Group slots by calendar day so the picker reads like a diary, not a flat list. */
+/**
+ * Group slots by UK calendar day so the picker reads like a diary, not a flat list.
+ *
+ * Keyed on the day in Europe/London rather than the viewer's device. The previous version
+ * used toDateString(), which groups by whatever zone the browser happens to be in, so a
+ * late slot could appear under the wrong day for anyone outside the UK.
+ */
 function byDay(slots: readonly SlotItem[]): Array<[string, SlotItem[]]> {
   const days = new Map<string, SlotItem[]>();
   for (const slot of slots) {
-    const key = new Date(slot.startsAt).toDateString();
+    const key = ukDayKey(slot.startsAt);
     const bucket = days.get(key);
     if (bucket) bucket.push(slot);
     else days.set(key, [slot]);
@@ -29,12 +37,27 @@ function byDay(slots: readonly SlotItem[]): Array<[string, SlotItem[]]> {
   return [...days.entries()];
 }
 
-const timeFormat = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+// Hospital time, always - see lib/format.ts for why the device's own zone is never used.
+const timeFormat = new Intl.DateTimeFormat("en-GB", {
+  timeZone: UK_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+});
 const dayFormat = new Intl.DateTimeFormat("en-GB", {
+  timeZone: UK_TIME_ZONE,
   weekday: "long",
   day: "numeric",
   month: "long",
 });
+
+/**
+ * One department's times across several clinic days. The API caps a request at 200.
+ *
+ * The page used to load times for every department at once. With six departments the first
+ * request was used up entirely by the next single day, so a patient could not see or choose
+ * any later date without first discovering the department filter.
+ */
+const SLOT_LIMIT = "200";
 
 function BookAppointmentForm() {
   const router = useRouter();
@@ -47,7 +70,7 @@ function BookAppointmentForm() {
   const queryClient = useQueryClient();
   const t = useT();
 
-  const [department, setDepartment] = useState("");
+  const [chosenDepartment, setChosenDepartment] = useState("");
   const [chosen, setChosen] = useState<SlotItem | null>(null);
   const [holdExpiry, setHoldExpiry] = useState<Date | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -62,13 +85,31 @@ function BookAppointmentForm() {
     retry: false,
   });
 
+  // The full list, from its own endpoint. Deriving it from the loaded slots meant choosing
+  // one department shrank the list to just that one.
+  const departments = useQuery({
+    queryKey: ["departments"],
+    queryFn: () => api.get<DepartmentListResponse>("/departments"),
+    staleTime: 5 * 60_000,
+  });
+
+  // When moving an appointment, start in the department it is already in. Derived rather
+  // than set in an effect, so the patient's own choice always wins once they make one.
+  const movingDepartment = useMemo(() => {
+    const name = moving.data?.appointment.departmentName;
+    if (!name) return "";
+    return departments.data?.items.find((item) => item.name === name)?.id ?? "";
+  }, [moving.data, departments.data]);
+
+  const department = chosenDepartment || movingDepartment;
+
   const slots = useQuery({
     queryKey: ["slots", department],
-    queryFn: () => {
-      const params = new URLSearchParams({ limit: "120" });
-      if (department) params.set("departmentId", department);
-      return api.get<SlotListResponse>(`/slots?${params}`);
-    },
+    queryFn: () =>
+      api.get<SlotListResponse>(
+        `/slots?${new URLSearchParams({ limit: SLOT_LIMIT, departmentId: department })}`,
+      ),
+    enabled: Boolean(department),
   });
 
   const hold = useMutation({
@@ -137,12 +178,6 @@ function BookAppointmentForm() {
     return () => clearInterval(timer);
   }, [holdExpiry, slots]);
 
-  const departments = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const slot of slots.data?.items ?? []) seen.set(slot.departmentId, slot.departmentName);
-    return [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [slots.data]);
-
   const days = byDay(slots.data?.items ?? []);
 
   return (
@@ -191,22 +226,35 @@ function BookAppointmentForm() {
           id="department"
           value={department}
           onChange={(event) => {
-            setDepartment(event.target.value);
+            setChosenDepartment(event.target.value);
             setChosen(null);
             setHoldExpiry(null);
           }}
           className="block min-h-[44px] w-full max-w-md border-2 border-nhs-black bg-white px-3 py-2 text-base"
         >
-          <option value="">{t("booking.allDepartments")}</option>
-          {departments.map(([id, name]) => (
-            <option key={id} value={id}>
-              {name}
+          <option value="">{t("booking.chooseDepartmentOption")}</option>
+          {(departments.data?.items ?? []).map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
             </option>
           ))}
         </select>
       </div>
 
-      {slots.isPending && (
+      {departments.error && (
+        <Alert tone="error" title={t("common.somethingWentWrong")} focusOnMount>
+          {departments.error.message}
+        </Alert>
+      )}
+
+      {!department && departments.data && (
+        <p className="mb-6">{t("booking.chooseDepartment")}</p>
+      )}
+
+      {/* isLoading, not isPending: a query waiting for a department to be chosen is
+          "pending" too, and would otherwise announce it is loading times it has not been
+          asked for. */}
+      {slots.isLoading && (
         <p role="status" aria-live="polite">
           {t("booking.loadingTimes")}
         </p>
@@ -227,7 +275,9 @@ function BookAppointmentForm() {
 
       {days.map(([day, daySlots]) => (
         <section key={day} className="mb-8">
-          <h2 className="mb-3 text-2xl font-bold">{dayFormat.format(new Date(day))}</h2>
+          <h2 className="mb-3 text-2xl font-bold">
+            {dayFormat.format(new Date(daySlots[0].startsAt))}
+          </h2>
           <ul className="flex flex-wrap gap-3">
             {daySlots.map((slot) => {
               const selected = chosen?.id === slot.id;
@@ -249,9 +299,12 @@ function BookAppointmentForm() {
                     )}
                   >
                     <span className="block">{timeFormat.format(new Date(slot.startsAt))}</span>
-                    <span className="block text-xs font-normal">
-                      {selected ? t("booking.held") : slot.departmentName}
-                    </span>
+                    {/* The department is already chosen, so name the clinician instead. */}
+                    {(selected || slot.clinicianName) && (
+                      <span className="block text-xs font-normal">
+                        {selected ? t("booking.held") : slot.clinicianName}
+                      </span>
+                    )}
                   </button>
                 </li>
               );

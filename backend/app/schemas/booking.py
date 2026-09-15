@@ -27,6 +27,17 @@ class SlotListResponse(CamelModel):
     meta: ResponseMeta
 
 
+class DepartmentItem(CamelModel):
+    id: uuid.UUID
+    code: str
+    name: str
+
+
+class DepartmentListResponse(CamelModel):
+    items: list[DepartmentItem]
+    meta: ResponseMeta
+
+
 class HoldResponse(CamelModel):
     slot_id: uuid.UUID
     expires_at: datetime

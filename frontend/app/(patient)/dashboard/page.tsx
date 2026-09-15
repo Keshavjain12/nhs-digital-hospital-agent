@@ -8,8 +8,10 @@ import { useSession } from "@/features/auth/SessionProvider";
 import { api } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import type { AppointmentListResponse } from "@/types/api";
+import { UK_TIME_ZONE } from "@/lib/format";
 
 const when = new Intl.DateTimeFormat("en-GB", {
+  timeZone: UK_TIME_ZONE,
   weekday: "long",
   day: "numeric",
   month: "long",
