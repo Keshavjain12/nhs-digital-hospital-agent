@@ -8,13 +8,16 @@ import { NextResponse, type NextRequest } from "next/server";
  * be disabled in development is one nobody trusts in production". This is that plumbing.
  *
  * A nonce cannot come from `headers()` in next.config.ts, which is static. It has to be
- * generated per response, which is what middleware is for: the nonce goes into the CSP
+ * generated per response, which is what this proxy is for: the nonce goes into the CSP
  * header and into a request header that Next reads to stamp its own inline scripts.
  *
  * Development keeps a deliberately looser policy. The dev server needs `unsafe-eval` for
  * React Refresh and inline styles for the error overlay, and pretending otherwise would
  * mean either a broken dev experience or a policy quietly relaxed everywhere. The
  * difference is confined to this file and stated out loud.
+ *
+ * Named proxy.ts rather than middleware.ts because Next.js 16 deprecated the old file
+ * convention and warned on every start. The behaviour is unchanged.
  */
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -37,8 +40,8 @@ function contentSecurityPolicy(nonce: string, overHttps: boolean): string {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     // The API is same-origin (see the rewrite in next.config.ts), so 'self' is all that is
-    // needed. If the API is ever moved back to its own origin this must be widened, and
-    // the WEBKIT-SESSION defect would come back with it.
+    // needed. If the API is ever moved back to its own origin this must be widened to
+    // match.
     "connect-src 'self'",
     "frame-ancestors 'none'",
     "form-action 'self'",
@@ -58,7 +61,7 @@ function contentSecurityPolicy(nonce: string, overHttps: boolean): string {
   ].join("; ");
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
 
   // x-forwarded-proto first: behind a TLS-terminating proxy the request reaches this

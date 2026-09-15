@@ -503,3 +503,20 @@ async def test_a_cancellation_reason_stays_out_of_the_audit_metadata(
 
     assert blob is not None
     assert "Distinctive personal circumstance" not in blob
+
+
+async def test_departments_are_listed_for_a_signed_in_patient(api: AsyncClient, slot: Any) -> None:
+    """The booking picker needs every department, independent of which slots are loaded."""
+    token, _ = await register_and_login(api, "departments.viewer@example.test", "Viewer")
+
+    response = await api.get("/api/v1/departments", headers=auth(token))
+
+    assert response.status_code == 200, response.text
+    items = response.json()["items"]
+    assert any(item["id"] == slot["department_id"] for item in items)
+    # Organisational data only: nothing beyond identity, code and name leaves this route.
+    assert all(set(item) == {"id", "code", "name"} for item in items)
+
+
+async def test_departments_require_sign_in(api: AsyncClient) -> None:
+    assert (await api.get("/api/v1/departments")).status_code == 401

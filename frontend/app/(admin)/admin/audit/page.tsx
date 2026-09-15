@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Alert, Badge, Button, Table, type Column } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { AuditEntry, AuditListResponse } from "@/types/api";
+import { UK_TIME_ZONE } from "@/lib/format";
 
 const FILTERS = [
   { label: "All events", action: "", result: "" },
@@ -33,7 +34,7 @@ export default function AuditPage() {
     {
       key: "when",
       header: "When",
-      cell: (row) => new Date(row.occurredAt).toLocaleString("en-GB"),
+      cell: (row) => new Date(row.occurredAt).toLocaleString("en-GB", { timeZone: UK_TIME_ZONE }),
     },
     {
       key: "action",

@@ -7,8 +7,10 @@ import { Alert, Badge, Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/api";
 import type { ModelCardSchema, ModelListResponse } from "@/types/api";
+import { UK_TIME_ZONE } from "@/lib/format";
 
 const when = new Intl.DateTimeFormat("en-GB", {
+  timeZone: UK_TIME_ZONE,
   day: "numeric",
   month: "short",
   hour: "2-digit",

@@ -25,6 +25,12 @@ export const messages = {
   "common.language": "Language",
   "common.changeLanguage": "Change language",
 
+  // --- Site footer: every page, from the root layout ----------------------------
+  "footer.notAffiliated":
+    "This is a student demonstration project. It is not affiliated with, endorsed by, or connected to the NHS.",
+  "footer.medicalAdvice": "For medical advice use",
+  "footer.opensInNewTab": "(opens in a new tab)",
+
   // --- Demonstration and safety banners ---------------------------------------
   "banner.demo.title": "Demonstration system.",
   "banner.demo.body":
@@ -118,8 +124,10 @@ export const messages = {
   "appointments.change": "Change this appointment",
   "appointments.cancel": "Cancel this appointment",
   "appointments.booked.title": "Appointment booked",
+  // No confirmation email is sent: this service has no email delivery (docs/deployment.md).
+  // Saying otherwise told a patient to wait for a message that would never arrive.
   "appointments.booked.body":
-    "Your reference is {reference}. We have sent a confirmation to your email address.",
+    "Your reference is {reference}. Keep a note of it in case you need to contact the hospital.",
   "appointments.rescheduled.title": "Appointment changed",
   "appointments.rescheduled.body":
     "Your new reference is {reference}. The time you had before has been cancelled.",
@@ -138,7 +146,8 @@ export const messages = {
   "booking.intro": "Choose a time that suits you. We hold it for five minutes while you confirm.",
   "booking.backToAppointments": "Back to your appointments",
   "booking.department": "Department",
-  "booking.allDepartments": "All departments",
+  "booking.chooseDepartmentOption": "Choose a department",
+  "booking.chooseDepartment": "Choose the department you need to see its available times.",
   "booking.loadingTimes": "Loading available times…",
   "booking.none.title": "No appointments available",
   "booking.none.body":

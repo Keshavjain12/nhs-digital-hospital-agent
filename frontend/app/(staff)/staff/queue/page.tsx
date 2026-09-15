@@ -16,6 +16,7 @@ import {
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { PatientListItem, PatientListResponse } from "@/types/api";
+import { formatDate, languageName } from "@/lib/format";
 
 export default function StaffQueuePage() {
   const [query, setQuery] = useState("");
@@ -50,7 +51,7 @@ export default function StaffQueuePage() {
       header: "Date of birth",
       cell: (row) => (
         <>
-          {new Date(row.dateOfBirth).toLocaleDateString("en-GB")}{" "}
+          {formatDate(row.dateOfBirth)}{" "}
           <span className="text-nhs-dark-grey">({row.age})</span>
         </>
       ),
@@ -97,7 +98,7 @@ export default function StaffQueuePage() {
           )}
           {row.interpreterNeeded && (
             <Badge tone="info" icon="⚑">
-              Interpreter: {row.preferredLanguage}
+              Interpreter: {languageName(row.preferredLanguage)}
             </Badge>
           )}
         </div>

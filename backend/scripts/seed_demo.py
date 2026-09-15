@@ -24,6 +24,7 @@ import asyncio
 import sys
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -222,6 +223,10 @@ EXTRA_CLINICIANS = (
     ("Idris", "Khan", "Emergency Physician", "AE"),
 )
 
+#: Clinic hours are UK wall-clock times. They used to be built in UTC, so from the end of
+#: March to the end of October every clinic ran an hour late - 10:00 to 18:00 - and a viewer
+#: outside the UK saw times further off still. A hospital's day is defined in its own zone.
+CLINIC_TIME_ZONE = ZoneInfo("Europe/London")
 CLINIC_WEEKDAYS = (0, 1, 2, 3, 4)  # Monday to Friday
 CLINIC_BLOCKS = ((time(9, 0), time(12, 0)), (time(14, 0), time(17, 0)))
 SLOT_MINUTES = 20
@@ -398,7 +403,7 @@ async def seed_slots(session: AsyncSession) -> int:
 
     # Start tomorrow: a slot earlier today is unbookable the moment it is written, and a
     # demo whose first page is full of dead times is worse than one with fewer slots.
-    first_day = (datetime.now(UTC) + timedelta(days=1)).date()
+    first_day = (datetime.now(CLINIC_TIME_ZONE) + timedelta(days=1)).date()
     created = 0
 
     for clinician in clinicians:
@@ -411,8 +416,8 @@ async def seed_slots(session: AsyncSession) -> int:
                 continue
 
             for block_start, block_end in CLINIC_BLOCKS:
-                cursor = datetime.combine(day, block_start, tzinfo=UTC)
-                block_finish = datetime.combine(day, block_end, tzinfo=UTC)
+                cursor = datetime.combine(day, block_start, tzinfo=CLINIC_TIME_ZONE)
+                block_finish = datetime.combine(day, block_end, tzinfo=CLINIC_TIME_ZONE)
 
                 while cursor + timedelta(minutes=SLOT_MINUTES) <= block_finish:
                     if (clinician.id, cursor) not in existing:
