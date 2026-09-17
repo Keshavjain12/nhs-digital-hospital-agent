@@ -87,6 +87,13 @@ notifications cannot reach a real person.
   `docker compose exec redis redis-cli FLUSHDB` clears it.
 - **All times are UK times**, whatever time zone your device is set to.
 
+### Deploying to Render
+
+`render.yaml` deploys the database, Redis, the API and the app to Render's free tier as a
+Blueprint. Step-by-step instructions, and the free-tier limits that matter - the database is
+deleted 30 days after creation unless upgraded - are in
+[`docs/deployment-render.md`](docs/deployment-render.md).
+
 ### Production-shaped deployment
 
 `docker-compose.prod.yml` runs built images, applies migrations before the API starts, and

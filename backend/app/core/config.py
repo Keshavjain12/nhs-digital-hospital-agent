@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
     # --- Database ------------------------------------------------------------
+    #: Plain postgres:// and postgresql:// URLs are accepted and given the async driver - see
+    #: _use_the_async_driver below.
     database_url: PostgresDsn
     db_pool_size: int = 10
     db_max_overflow: int = 5
@@ -75,6 +77,23 @@ class Settings(BaseSettings):
     # --- Demo / seeding ------------------------------------------------------
     # Used only by scripts/seed_demo.py. Never a default: seeding must be explicit.
     demo_password: str | None = None
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _use_the_async_driver(cls, value: object) -> object:
+        """Accept the plain postgres:// URLs that hosting platforms hand out.
+
+        Render, like Heroku-style hosts, provides `postgresql://` or `postgres://`. SQLAlchemy
+        picks the driver from the scheme, and without `+asyncpg` it reaches for psycopg2 -
+        which is not installed - so the API would start and then fail on its first query.
+        Rewriting the scheme here lets deployment config be a straight copy of what the
+        platform provides.
+        """
+        if isinstance(value, str):
+            for prefix in ("postgres://", "postgresql://"):
+                if value.startswith(prefix):
+                    return "postgresql+asyncpg://" + value[len(prefix) :]
+        return value
 
     @field_validator("cors_origins", mode="before")
     @classmethod

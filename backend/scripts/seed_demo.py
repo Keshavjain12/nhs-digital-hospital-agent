@@ -556,7 +556,9 @@ async def seed(reset: bool) -> int:
     print(f"  {'-' * 26} {'-' * 9} -------")
     for (email, status), spec in zip(created, DEMO_ACCOUNTS, strict=True):
         print(f"  {email:<26} {spec.role.value:<9} {status}")
-    print(f"\n  Password for all accounts: {settings.demo_password}")
+    # The password itself is not printed. On a hosted deployment this output lands in the
+    # service logs, and passwords are not logged - even a demonstration one.
+    print("\n  Password for all accounts: the DEMO_PASSWORD this was run with")
     print(f"  Appointment slots created: {slots_created}")
     if demo_reference:
         print(f"  Upcoming appointment for the demo patient: {demo_reference}")
