@@ -69,6 +69,12 @@ Every design decision in `docs/` traces back to an entry here. Classification pe
 | **B5** | **DCB0129 / DCB0160 require a named Clinical Safety Officer.** No such person exists on this project. | A valid clinical safety case cannot be produced. | Outside engineering control. We build the technical foundations (audit trail, human-in-the-loop gates, provenance tracking) and document them as *supporting evidence for a future safety case* — never as compliance. |
 
 
+### Open defects
+
+| # | Defect | Impact | Status |
+|---|---|---|---|
+| **D-FORWARDED-FOR** | The API takes the client IP from the left-most `X-Forwarded-For` entry (`backend/app/core/deps.py`), which the client controls. Confirmed against the running production stack on 17 Sep 2026: three requests with three spoofed values created three separate login rate-limit counters. | Each spoofed value gets a fresh allowance, so the per-IP login limit - and the password-spraying protection it gives - can be bypassed, and audit-log IP hashes can be forged. Per-account lockout still applies. | **Open.** The obvious fix, trusting the proxy's own right-most entry, would put every web user behind the web service's single egress IP on Render's free tier, where the API must be public - so fifteen bad sign-ins by one person would lock everyone out. The correct fix is a shared secret between the web and API services, with the web service passing the client IP it received from Render's edge. |
+
 ### Defects found and closed
 
 | # | Defect | Outcome |
