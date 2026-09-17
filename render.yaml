@@ -1,0 +1,78 @@
+# Render Blueprint - the NHS Digital Hospital Agent on Render's free tier.
+#
+# Deploy: Render dashboard -> New -> Blueprint -> this repository. Step-by-step instructions,
+# and the free-tier limits that matter (the database is deleted 30 days after creation unless
+# upgraded), are in docs/deployment-render.md.
+#
+# A demonstration on synthetic data. Deploying it does not make it an NHS service.
+
+databases:
+  - name: nhs-hospital-agent-db
+    plan: free
+    region: frankfurt
+    databaseName: hospital
+    user: hospital
+    postgresMajorVersion: "16"
+
+services:
+  # Rate-limit counters, shared by every API process. The empty allow list admits internal
+  # connections only. Free Key Value does not persist, which is fine: losing a counter resets
+  # a limit, not any data.
+  - type: keyvalue
+    name: nhs-hospital-agent-redis
+    plan: free
+    region: frankfurt
+    ipAllowList: []
+
+  - type: web
+    name: nhs-hospital-agent-api-kj12
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerContext: ./backend
+    dockerfilePath: ./docker/Dockerfile.backend
+    # Not run through a shell by Render, hence the explicit /bin/sh. The script migrates,
+    # seeds the demo data and then starts the API - see the script for why.
+    dockerCommand: /bin/sh scripts/render-start.sh
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "8000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nhs-hospital-agent-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: nhs-hospital-agent-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      # Asked for when the Blueprint is created, so no credential is written into this file.
+      # Enter the password the sign-in page shows for the demonstration accounts.
+      - key: DEMO_PASSWORD
+        sync: false
+
+  - type: web
+    name: nhs-hospital-agent-kj12
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerContext: ./frontend
+    dockerfilePath: ./docker/Dockerfile.frontend
+    healthCheckPath: /login
+    envVars:
+      - key: PORT
+        value: "3000"
+      # The API's public address. Free web services cannot receive private-network traffic,
+      # so the app reaches the API over HTTPS rather than Render's internal network. Render
+      # passes environment variables to Docker builds as build arguments, which is what this
+      # needs: Next writes it into the routes manifest at build time.
+      #
+      # If Render gave the API a different address (the name was taken), change this to the
+      # address it shows, then redeploy with "Clear build cache & deploy".
+      - key: API_ORIGIN
+        value: https://nhs-hospital-agent-api-kj12.onrender.com
