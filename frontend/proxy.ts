@@ -61,7 +61,36 @@ function contentSecurityPolicy(nonce: string, overHttps: boolean): string {
   ].join("; ");
 }
 
+/**
+ * Wake the API before a patient needs it.
+ *
+ * On Render's free tier each web service sleeps after 15 minutes without traffic and takes
+ * about a minute to wake, and the app and the API sleep independently. A visitor could load
+ * the sign-in page from an awake app and then wait - or time out - on a sleeping API at the
+ * moment they press "Sign in". So a page load sends one fire-and-forget request to the API's
+ * health check, at most every five minutes: the API is usually awake by the time it is
+ * needed, and stays awake while the app is being used.
+ *
+ * Only when API_ORIGIN is present at runtime, which it is on Render. The compose stacks never
+ * sleep, so there it costs one health check every five minutes at most.
+ */
+const WAKE_INTERVAL_MS = 5 * 60_000;
+let lastWake = 0;
+
+function wakeApi(): void {
+  const origin = process.env.API_ORIGIN;
+  if (!origin) return;
+  const now = Date.now();
+  if (now - lastWake < WAKE_INTERVAL_MS) return;
+  lastWake = now;
+  void fetch(`${origin}/health`, { cache: "no-store" }).catch(() => {
+    // A failed wake-up is not this request's problem; the real API call reports its own.
+  });
+}
+
 export function proxy(request: NextRequest) {
+  wakeApi();
+
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
 
   // x-forwarded-proto first: behind a TLS-terminating proxy the request reaches this
