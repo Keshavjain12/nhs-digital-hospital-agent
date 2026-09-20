@@ -34,6 +34,12 @@ services:
     # Not run through a shell by Render, hence the explicit /bin/sh. The script migrates,
     # seeds the demo data and then starts the API - see the script for why.
     dockerCommand: /bin/sh scripts/render-start.sh
+    # /health, not /ready - the opposite of the compose stack, on purpose. Render restarts a
+    # service whose health check keeps failing, so pointing it at a probe that depends on the
+    # database turns a database blip into a restart loop. The case /ready guards against
+    # there - starting with an unreachable database - cannot happen here anyway: the start
+    # script runs `alembic upgrade head` under `set -eu`, so a database that cannot be
+    # reached fails the deploy loudly before uvicorn is ever exec'd.
     healthCheckPath: /health
     envVars:
       - key: ENVIRONMENT
@@ -51,6 +57,12 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      # Empty on purpose, matching docker-compose.prod.yml. The browser reaches the API
+      # through the app's own origin, so no cross-origin call is ever expected; left unset
+      # the default allow-list is http://localhost:3000, which has no business being
+      # trusted by a public deployment.
+      - key: CORS_ORIGINS
+        value: ""
       # Asked for when the Blueprint is created, so no credential is written into this file.
       # Enter the password the sign-in page shows for the demonstration accounts.
       - key: DEMO_PASSWORD

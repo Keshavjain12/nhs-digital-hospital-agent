@@ -53,11 +53,27 @@ the application makes that race the default behaviour rather than an accident.
 
 **The browser never talks to the API directly.** `web` proxies `/api/v1/*` to `api` on its
 own origin, so the session cookie is first-party, no CORS preflight happens, and the
-backend's address never reaches the browser. `CORS_ORIGINS` is therefore empty by default.
+backend's address never reaches the browser. Both deployments therefore set `CORS_ORIGINS`
+empty - the compose stack and `render.yaml` alike. The setting's own default is
+`http://localhost:3000`, which suits development and has no business being trusted by a
+deployed service, so neither deployment leaves it unset.
 
 Both images run as a non-root user and carry a healthcheck. The frontend image is built in
 three stages so the runtime layer carries neither the toolchain nor `node_modules` — Next's
 `output: "standalone"` traces only the dependencies actually reached.
+
+The backend image has two targets for the same reason. `runtime` — the default, and what
+this stack and Render build — installs the application's dependencies alone; `dev`, which
+`docker-compose.yml` selects, adds pytest, ruff and mypy so `docker compose exec api pytest`
+works. Until 20 September 2026 there was one stage that installed `.[dev]`, so every
+deployed image carried the test and lint toolchain, plus a C toolchain for an extension
+that has shipped prebuilt wheels for years: 216 MB of image where 76 MB does the job.
+
+**The API's healthcheck is `/ready`, not `/health`.** `/health` is a liveness probe and
+deliberately never touches the database, so an API that could not reach PostgreSQL still
+reported healthy — which is exactly how a wrong database password hid behind a green
+status. Compose uses the healthcheck as a readiness gate, and Docker does not restart a
+container for being unhealthy, so checking the database there costs nothing.
 
 **`API_ORIGIN` is a build argument, not a runtime one.** Next evaluates rewrites at build
 time and writes them into the routes manifest, so setting it only at runtime leaves the

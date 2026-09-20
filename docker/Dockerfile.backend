@@ -1,4 +1,15 @@
 # Backend image. Build context is ./backend (see docker-compose.yml).
+#
+# Two targets:
+#   runtime (default) - what Render and docker-compose.prod.yml build: application
+#                       dependencies only.
+#   dev               - adds the test and lint toolchain so `docker compose exec api pytest`
+#                       works. docker-compose.yml selects it.
+#
+# `runtime` is deliberately the last stage. A build with no --target builds the last stage,
+# and Render's Blueprint cannot pass one - so if `dev` were last, every deployment would
+# ship pytest, mypy and ruff. That ordering is load-bearing; do not move it.
+
 FROM python:3.12-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
@@ -8,11 +19,12 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# build-essential is needed to compile argon2-cffi's extension.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
+# No compiler here on purpose. Every third-party dependency installs from a prebuilt
+# manylinux wheel, argon2-cffi and asyncpg included; the only wheel built during this
+# image's build is this project's own, which is pure Python. build-essential was installed
+# for argon2-cffi and left 26 MB of gcc in the shipped image for nothing. If a dependency
+# ever does need to compile, add a separate builder stage rather than a compiler here.
+#
 # Dependencies are installed before the source is copied, so a code change does not
 # invalidate the dependency layer.
 #
@@ -24,14 +36,26 @@ COPY pyproject.toml ./
 RUN mkdir -p app \
     && touch app/__init__.py \
     && pip install --upgrade pip \
-    && pip install -e ".[dev]"
+    && pip install -e .
 
 COPY . .
 
-# Never run as root. A container escape should not start from uid 0.
+# Never run as root. A container escape should not start from uid 0. The USER itself is
+# set by each final stage, so that the dev stage can still install packages.
 RUN useradd --create-home --uid 1000 appuser && chown -R appuser:appuser /app
-USER appuser
 
 EXPOSE 8000
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
+# Development only: the test and lint toolchain on top of the application image.
+FROM base AS dev
+RUN pip install -e ".[dev]" && chown -R appuser:appuser /app
+USER appuser
+
+
+# Production runtime, and the default target. It adds nothing - the point of the stage is
+# that it comes last, so a plain `docker build` cannot pick up the dev toolchain.
+FROM base AS runtime
+USER appuser

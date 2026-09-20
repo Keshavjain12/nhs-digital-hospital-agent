@@ -52,6 +52,8 @@ services:
     build:
       context: ./backend
       dockerfile: ../docker/Dockerfile.backend
+      # Application dependencies only - no test or lint toolchain in a deployed image.
+      target: runtime
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
@@ -71,6 +73,8 @@ services:
     build:
       context: ./backend
       dockerfile: ../docker/Dockerfile.backend
+      # Application dependencies only - no test or lint toolchain in a deployed image.
+      target: runtime
     environment:
       ENVIRONMENT: production
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -93,13 +97,19 @@ services:
     # behaviour depends on the host filesystem is not reproducible.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
     restart: unless-stopped
+    # /ready, not /health: compose uses this as a readiness gate for the web service,
+    # and /health is a liveness probe that deliberately never touches the database. An
+    # API that cannot reach PostgreSQL reported "healthy" for as long as the process
+    # was alive, which hid a broken database credential behind a green status. Docker
+    # does not restart a container for being unhealthy, so checking the database here
+    # costs nothing and makes the failure visible.
     healthcheck:
       test:
         [
           "CMD",
           "python",
           "-c",
-          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/ready', timeout=3).status==200 else 1)",
         ]
       interval: 30s
       timeout: 5s

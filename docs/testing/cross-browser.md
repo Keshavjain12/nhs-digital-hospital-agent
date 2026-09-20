@@ -1,7 +1,8 @@
 # Cross-browser testing
 
 **Status:** run against Chromium, Firefox and WebKit. 30/30 on every engine, 2 September
-2026. The defect previously recorded here as a WebKit fault was a misdiagnosis; §3 records
+2026, re-confirmed 20 September 2026. §2 records the transport setting that makes WebKit
+appear to fail when the suite is pointed at the production compose stack over plain HTTP. The defect previously recorded here as a WebKit fault was a misdiagnosis; §3 records
 what it actually was and how it was found.
 
 Two suites run on all three engines: the WCAG audit
@@ -36,7 +37,36 @@ as certain.
 | Firefox | 30/30 pass |
 | WebKit | 30/30 pass |
 
-No test is skipped or marked `fixme` on any engine.
+No test is skipped or marked `fixme` on any engine. Re-run 20 September 2026 against a
+rebuilt stack: 30/30 on all three again.
+
+### Run it against a stack that serves the suite's own transport
+
+**WebKit fails four of these tests against `docker-compose.prod.yml` over plain HTTP, and
+the cause is the transport, not the application.** The production stack sets
+`ENVIRONMENT=production`, so the refresh cookie carries `Secure`; on `http://localhost`
+Chromium and Firefox send it anyway because they treat localhost as a trustworthy origin,
+and WebKit does not. The cookie is stored and then never sent, every `/auth/refresh`
+answers 401, and the next full page load lands on the sign-in screen - which surfaces as
+"the Start button is missing", not as anything about cookies.
+
+Measured on 20 September 2026, with a server that sets one cookie with exactly the API's
+flags over plain HTTP:
+
+| Engine | `Secure` cookie over `http://localhost` |
+| --- | --- |
+| Chromium | sent back |
+| Firefox | sent back |
+| WebKit | **not sent back** |
+
+Changing `ENVIRONMENT` to `testing` on the API container - which drops `Secure` and nothing
+else - took WebKit from 4 failed, 5 did not run, 21 passed to **30/30**. So run the suite
+against the development stack, or against a stack behind TLS. A deployment behind HTTPS,
+Render included, is unaffected: the flag exists precisely so the cookie is not sent in
+clear, and there Safari receives it like every other browser.
+
+This is the second time a transport setting has presented as a WebKit session defect. §3 is
+the first.
 
 Run one engine at a time:
 

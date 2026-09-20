@@ -24,6 +24,12 @@ dependencies = [
     # Shared rate-limit counters. Without it the limiter is per-process, so the configured
     # limit is multiplied by the worker count - see app/core/ratelimit.py.
     "redis>=5.2.0",
+    # The IANA time-zone database. Linux images carry one in /usr/share/zoneinfo; Windows
+    # carries none, so ZoneInfo("Europe/London") in scripts/seed_demo.py raised
+    # ZoneInfoNotFoundError on a Windows machine while CI (Ubuntu) stayed green. zoneinfo
+    # reads the system database first and falls back to this package, so this changes
+    # nothing on Linux and makes the seed run everywhere.
+    "tzdata>=2024.2",
 ]
 
 [project.optional-dependencies]
