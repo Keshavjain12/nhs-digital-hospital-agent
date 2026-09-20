@@ -40,6 +40,9 @@ services:
     build:
       context: ./backend
       dockerfile: ../docker/Dockerfile.backend
+      # The stage that carries pytest, ruff and mypy - `docker compose exec api pytest`
+      # needs them. The production stack builds the default `runtime` stage instead.
+      target: dev
     env_file: .env
     environment:
       # Overrides the .env value so the container reaches Postgres by service name.
@@ -55,8 +58,9 @@ services:
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # /ready rather than /health - see docker-compose.prod.yml for why.
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/ready', timeout=3).status==200 else 1)"]
       interval: 10s
       timeout: 5s
       retries: 5
